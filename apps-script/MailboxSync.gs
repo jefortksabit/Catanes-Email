@@ -52,7 +52,7 @@ function syncMailboxInternal_(options) {
             buildProcessedMessage_(message),
             thread.getId(),
             messageId,
-            hasReplyAfterMessage_(message.getDate(), replyDates),
+            buildInitialEmailStatus_(message.getDate(), replyDates),
             '',
           ]);
 
@@ -155,6 +155,12 @@ function hasReplyAfterMessage_(messageDate, replyDates) {
   return replyDates.some(function(replyTime) {
     return replyTime > messageTime;
   });
+}
+
+function buildInitialEmailStatus_(messageDate, replyDates) {
+  return hasReplyAfterMessage_(messageDate, replyDates)
+    ? EMAIL_MONITOR_CONFIG.completedStatus
+    : EMAIL_MONITOR_CONFIG.defaultStatus;
 }
 
 function messageAddressContainsMailbox_(value) {

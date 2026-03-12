@@ -18,7 +18,7 @@ The `Email Log` sheet keeps only the essential monitoring columns:
 7. Message
 8. Thread ID
 9. Message ID
-10. With Reply
+10. Status
 11. Status Update
 
 ## Extra tabs
@@ -42,7 +42,7 @@ The project is split into smaller Apps Script files for easier maintenance:
 
 - Only inbound emails are logged.
 - The first sync baseline is fixed at February 1, 2026. After that, syncs continue incrementally for newer emails.
-- `With Reply` is a checkbox that turns `TRUE` when the same thread contains a later reply sent from `jcatanes@ched.gov.ph`.
+- `Status` is a manual workflow column that defaults to `Pending` or `Completed` during sync and can be changed later.
 - `Reference Number` and `Status Update` are manual columns that stay editable in the sheet.
 - `Message` is generated from the cleaned plain-text body of the email after removing common quoted-thread markers and trimming the result for the sheet.
 
@@ -70,10 +70,10 @@ The same Apps Script project also includes a web app UI for browsing the monitor
 
 The web app includes:
 
-- summary cards for total emails, senders, replied threads, pending replies, and today's volume
-- a sender dropdown, reply-status filter, search box, and row limit selector
+- summary cards for total emails, senders, completed items, open items, and today's volume
+- a sender dropdown, status filter, search box, and row limit selector
 - a live table of email records loaded directly from `Email Log`
-- editable `Reference Number` and `Status Update` fields that save back to Google Sheets
+- editable `Reference Number`, `Status`, and `Status Update` fields that save back to Google Sheets
 
 ## Menu actions
 

@@ -4,6 +4,7 @@ function doGet() {
     monitoredMailbox: EMAIL_MONITOR_CONFIG.monitoredMailbox,
     baselineDateLabel: 'February 1, 2026',
     spreadsheetId: EMAIL_MONITOR_CONFIG.spreadsheetId,
+    statusOptions: EMAIL_MONITOR_CONFIG.statusOptions,
   };
 
   return template

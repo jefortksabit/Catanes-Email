@@ -39,7 +39,9 @@ function getEmailLogRecordsForWeb_() {
         messageId: String(
           row[EMAIL_LOG_COLUMN_INDEX.messageId - 1] || ''
         ).trim(),
-        withReply: row[EMAIL_LOG_COLUMN_INDEX.withReply - 1] === true,
+        status: normalizeEmailStatusValue_(
+          row[EMAIL_LOG_COLUMN_INDEX.status - 1]
+        ),
         statusUpdate: String(
           row[EMAIL_LOG_COLUMN_INDEX.statusUpdate - 1] || ''
         ).trim(),
@@ -87,15 +89,13 @@ function normalizeWebFilters_(filters) {
     Math.max(parseInt(filters.limit, 10) || WEB_APP_CONFIG.defaultRowLimit, 25),
     WEB_APP_CONFIG.maxRowLimit
   );
-  const replyStatus = String(filters.replyStatus || 'all').trim();
+  const status = String(filters.status || 'all').trim();
 
   return {
     sender: String(filters.sender || '').trim(),
     query: String(filters.query || '').trim(),
-    replyStatus:
-      replyStatus === 'with_reply' || replyStatus === 'pending_reply'
-        ? replyStatus
-        : 'all',
+    status:
+      EMAIL_MONITOR_CONFIG.statusOptions.indexOf(status) !== -1 ? status : 'all',
     limit: limit,
   };
 }
@@ -105,11 +105,7 @@ function recordMatchesFilters_(record, filters) {
     return false;
   }
 
-  if (filters.replyStatus === 'with_reply' && !record.withReply) {
-    return false;
-  }
-
-  if (filters.replyStatus === 'pending_reply' && record.withReply) {
+  if (filters.status !== 'all' && record.status !== filters.status) {
     return false;
   }
 
@@ -126,6 +122,7 @@ function recordMatchesFilters_(record, filters) {
     record.message,
     record.threadId,
     record.messageId,
+    record.status,
     record.statusUpdate,
   ]
     .join(' ')
@@ -149,7 +146,7 @@ function formatEmailRecordForWeb_(record) {
     message: record.message || 'No message content.',
     threadId: record.threadId,
     messageId: record.messageId,
-    withReply: record.withReply,
+    status: record.status,
     statusUpdate: record.statusUpdate,
   };
 }
@@ -161,7 +158,8 @@ function buildWebSummary_(records) {
     'yyyy-MM-dd'
   );
   const uniqueSenders = new Set();
-  let withReplyCount = 0;
+  let completedCount = 0;
+  let openCount = 0;
   let receivedToday = 0;
 
   records.forEach(function(record) {
@@ -169,8 +167,10 @@ function buildWebSummary_(records) {
       uniqueSenders.add(record.from);
     }
 
-    if (record.withReply) {
-      withReplyCount += 1;
+    if (isOpenEmailStatus_(record.status)) {
+      openCount += 1;
+    } else {
+      completedCount += 1;
     }
 
     const recordDay = Utilities.formatDate(
@@ -186,8 +186,8 @@ function buildWebSummary_(records) {
   return {
     totalEmails: records.length,
     uniqueSenders: uniqueSenders.size,
-    withReply: withReplyCount,
-    pendingReply: records.length - withReplyCount,
+    completed: completedCount,
+    openItems: openCount,
     receivedToday: receivedToday,
   };
 }
@@ -248,6 +248,7 @@ function updateEmailRecordManualFields(payload) {
   const referenceNumber = normalizeManualSheetValue_(
     payload && payload.referenceNumber
   );
+  const status = normalizeEmailStatusValue_(payload && payload.status);
   const statusUpdate = normalizeManualSheetValue_(
     payload && payload.statusUpdate
   );
@@ -278,6 +279,7 @@ function updateEmailRecordManualFields(payload) {
   sheet
     .getRange(matchedRow, EMAIL_LOG_COLUMN_INDEX.referenceNumber)
     .setValue(referenceNumber);
+  sheet.getRange(matchedRow, EMAIL_LOG_COLUMN_INDEX.status).setValue(status);
   sheet
     .getRange(matchedRow, EMAIL_LOG_COLUMN_INDEX.statusUpdate)
     .setValue(statusUpdate);
@@ -286,6 +288,7 @@ function updateEmailRecordManualFields(payload) {
   return {
     messageId: messageId,
     referenceNumber: referenceNumber,
+    status: status,
     statusUpdate: statusUpdate,
   };
 }

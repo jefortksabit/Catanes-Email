@@ -1,3 +1,9 @@
+const EMAIL_STATUS_OPTIONS = Object.freeze([
+  'Pending',
+  'In Progress',
+  'Completed',
+]);
+
 const EMAIL_MONITOR_CONFIG = Object.freeze({
   monitoredMailbox: 'jcatanes@ched.gov.ph',
   spreadsheetId: '1TYsnQlu8S4CslR42Y18A2d4JD_EGKVmpMEtUug-WqWY',
@@ -10,6 +16,10 @@ const EMAIL_MONITOR_CONFIG = Object.freeze({
   batchSize: 100,
   timeZone: 'Asia/Manila',
   maxFallbackChars: 280,
+  statusOptions: EMAIL_STATUS_OPTIONS,
+  defaultStatus: EMAIL_STATUS_OPTIONS[0],
+  inProgressStatus: EMAIL_STATUS_OPTIONS[1],
+  completedStatus: EMAIL_STATUS_OPTIONS[2],
   scriptProperties: {
     lastSyncAt: 'EMAIL_MONITOR_LAST_SYNC_AT',
   },
@@ -24,7 +34,7 @@ const EMAIL_MONITOR_CONFIG = Object.freeze({
     'Message ID',
     'With Reply',
   ],
-  headers: [
+  previousHeaders: [
     'Reference Number',
     'Date Received',
     'From',
@@ -37,7 +47,20 @@ const EMAIL_MONITOR_CONFIG = Object.freeze({
     'With Reply',
     'Status Update',
   ],
-  columnWidths: [170, 155, 260, 260, 220, 320, 430, 170, 190, 110, 220],
+  headers: [
+    'Reference Number',
+    'Date Received',
+    'From',
+    'To',
+    'Cc',
+    'Subject',
+    'Message',
+    'Thread ID',
+    'Message ID',
+    'Status',
+    'Status Update',
+  ],
+  columnWidths: [170, 155, 260, 260, 220, 320, 430, 170, 190, 130, 220],
 });
 
 const EMAIL_LOG_COLUMN_INDEX = Object.freeze({
@@ -50,7 +73,7 @@ const EMAIL_LOG_COLUMN_INDEX = Object.freeze({
   message: 7,
   threadId: 8,
   messageId: 9,
-  withReply: 10,
+  status: 10,
   statusUpdate: 11,
 });
 
@@ -58,3 +81,26 @@ const WEB_APP_CONFIG = Object.freeze({
   defaultRowLimit: 150,
   maxRowLimit: 500,
 });
+
+function normalizeEmailStatusValue_(value) {
+  const rawValue =
+    value === true || value === false
+      ? mapReplyFlagToStatus_(value)
+      : String(value || '').trim();
+
+  return EMAIL_MONITOR_CONFIG.statusOptions.indexOf(rawValue) !== -1
+    ? rawValue
+    : EMAIL_MONITOR_CONFIG.defaultStatus;
+}
+
+function mapReplyFlagToStatus_(value) {
+  return value === true
+    ? EMAIL_MONITOR_CONFIG.completedStatus
+    : EMAIL_MONITOR_CONFIG.defaultStatus;
+}
+
+function isOpenEmailStatus_(value) {
+  return (
+    normalizeEmailStatusValue_(value) !== EMAIL_MONITOR_CONFIG.completedStatus
+  );
+}

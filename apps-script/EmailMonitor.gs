@@ -4,7 +4,7 @@ const EMAIL_MONITOR_CONFIG = Object.freeze({
   logSheetName: 'Email Log',
   dashboardSheetName: 'Dashboard',
   baseQuery: 'in:anywhere -in:trash -in:spam',
-  initialLookbackDays: 30,
+  initialSyncStartDate: '2026-02-01',
   overlapDays: 2,
   batchSize: 100,
   timeZone: 'Asia/Manila',
@@ -32,7 +32,7 @@ function onOpen() {
     .addItem('Bootstrap monitor', 'bootstrapEmailMonitor')
     .addItem('Setup sheets only', 'setupEmailMonitor')
     .addItem('Sync now', 'syncMailbox')
-    .addItem('Backfill last 180 days', 'backfillLast180Days')
+    .addItem('Resync from Feb 1, 2026', 'resyncFromStartDate')
     .addSeparator()
     .addItem('Install hourly trigger', 'installHourlySyncTrigger')
     .addItem('Reset sync state', 'resetSyncState')
@@ -65,10 +65,9 @@ function syncMailbox() {
   syncMailboxInternal_({});
 }
 
-function backfillLast180Days() {
+function resyncFromStartDate() {
   syncMailboxInternal_({
-    ignoreCheckpoint: true,
-    lookbackDays: 180,
+    forceStartDate: true,
   });
 }
 
@@ -97,7 +96,7 @@ function resetSyncState() {
   );
 
   getTargetSpreadsheet_().toast(
-    'Sync checkpoint cleared. The next run will re-scan the recent window.',
+    'Sync checkpoint cleared. The next run will re-scan from February 1, 2026.',
     'Email Monitor',
     8
   );
@@ -392,19 +391,15 @@ function buildQuery_(settings) {
   const lastSyncAt = PropertiesService.getScriptProperties().getProperty(
     EMAIL_MONITOR_CONFIG.scriptProperties.lastSyncAt
   );
-  let startDate;
+  const baselineDate = getInitialSyncStartDate_();
+  let startDate = baselineDate;
 
-  if (settings.ignoreCheckpoint && settings.lookbackDays) {
-    startDate = new Date();
-    startDate.setDate(startDate.getDate() - settings.lookbackDays);
-  } else if (lastSyncAt) {
+  if (!settings.forceStartDate && lastSyncAt) {
     startDate = new Date(lastSyncAt);
     startDate.setDate(startDate.getDate() - EMAIL_MONITOR_CONFIG.overlapDays);
-  } else {
-    startDate = new Date();
-    startDate.setDate(
-      startDate.getDate() - EMAIL_MONITOR_CONFIG.initialLookbackDays
-    );
+    if (startDate.getTime() < baselineDate.getTime()) {
+      startDate = baselineDate;
+    }
   }
 
   return [
@@ -416,6 +411,10 @@ function buildQuery_(settings) {
         'yyyy/MM/dd'
       ),
   ].join(' ');
+}
+
+function getInitialSyncStartDate_() {
+  return new Date(EMAIL_MONITOR_CONFIG.initialSyncStartDate + 'T00:00:00+08:00');
 }
 
 function shouldLogMessage_(message) {

@@ -22,6 +22,7 @@ The `Email Log` sheet keeps only the essential monitoring columns:
 ## How the sheet works
 
 - Only inbound emails are logged.
+- The first sync baseline is fixed at February 1, 2026. After that, syncs continue incrementally for newer emails.
 - `With Reply` is a checkbox that turns `TRUE` when the same thread contains a later reply sent from `jcatanes@ched.gov.ph`.
 - `Message` is generated from the cleaned plain-text body of the email after removing common quoted-thread markers and trimming the result for the sheet.
 
@@ -41,12 +42,13 @@ The `Email Log` sheet keeps only the essential monitoring columns:
 - `Bootstrap monitor`: creates the sheets, installs the hourly trigger, and runs the first sync.
 - `Setup sheets only`: rebuilds the `Email Log` and refreshes the `Dashboard`.
 - `Sync now`: imports newly found inbound emails.
-- `Backfill last 180 days`: imports older inbound email history.
+- `Resync from Feb 1, 2026`: reruns the import window from February 1, 2026 without creating duplicates.
 - `Install hourly trigger`: recreates the time-driven sync trigger.
-- `Reset sync state`: clears the sync checkpoint so the next run rescans the recent window.
+- `Reset sync state`: clears the sync checkpoint so the next run rescans from February 1, 2026.
 
 ## Notes
 
 - The script must be authorized while signed in as `jcatanes@ched.gov.ph`; `GmailApp` reads the mailbox of the account that authorizes the script.
 - Existing log sheets with the older column layout are preserved by renaming them to a timestamped backup sheet before the simplified `Email Log` is created.
 - This version does not depend on AI Studio or any external AI service.
+- Mail earlier than February 1, 2026 is intentionally excluded from sync.

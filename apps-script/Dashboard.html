@@ -1051,7 +1051,6 @@
       const STATUS_OPTIONS = (APP_BOOTSTRAP.statusOptions || []).slice();
       let currentRenderedRows = [];
       let currentPersonnelOptions = [];
-      let personnelFilterTimer = null;
 
       document.addEventListener("DOMContentLoaded", initializeApp);
 
@@ -1064,6 +1063,7 @@
         byId("senderFilter").addEventListener("change", applyFilters);
         byId("statusFilter").addEventListener("change", applyFilters);
         byId("personnelFilter").addEventListener("change", handlePersonnelFilterChange);
+        byId("personnelFilter").addEventListener("toggle", handlePersonnelFilterToggle);
         byId("limitFilter").addEventListener("change", applyFilters);
         byId("refreshButton").addEventListener("click", loadBootstrapData);
         byId("clearButton").addEventListener("click", clearFilters);
@@ -1083,6 +1083,7 @@
       }
 
       function loadBootstrapData() {
+        clearDeferredPersonnelFilterApply();
         showLoading("Refreshing data from the monitoring sheet...");
         google.script.run
           .withSuccessHandler(function(payload) {
@@ -1095,9 +1096,29 @@
       }
 
       function handlePersonnelFilterChange() {
-        syncMultiSelectLabel(byId("personnelFilter"));
-        window.clearTimeout(personnelFilterTimer);
-        personnelFilterTimer = window.setTimeout(applyFilters, 120);
+        const control = byId("personnelFilter");
+        syncMultiSelectLabel(control);
+
+        if (control && control.hasAttribute("open")) {
+          control.setAttribute("data-pending-apply", "true");
+          return;
+        }
+
+        applyFilters();
+      }
+
+      function handlePersonnelFilterToggle(event) {
+        const control = event.currentTarget;
+        if (
+          !control ||
+          control.hasAttribute("open") ||
+          control.getAttribute("data-pending-apply") !== "true"
+        ) {
+          return;
+        }
+
+        control.removeAttribute("data-pending-apply");
+        applyFilters();
       }
 
       function handleDocumentClick(event) {
@@ -1109,6 +1130,7 @@
       }
 
       function applyFilters() {
+        clearDeferredPersonnelFilterApply();
         showLoading("Applying filters...");
         google.script.run
           .withSuccessHandler(function(payload) {
@@ -1364,6 +1386,8 @@
             );
           })
           .join("");
+
+        bindRowMultiSelectToggles(body);
       }
 
       function handleRowActionClick(event) {
@@ -1406,9 +1430,23 @@
           return;
         }
 
-        syncMultiSelectLabel(event.target.closest(".multi-select"));
-        syncPersonnelSummaryNote(event.target.closest("tr"));
-        saveRowDraft(event.target.closest("tr"));
+        const rowElement = event.target.closest("tr");
+        const multiSelectControl = event.target.closest(".multi-select");
+
+        syncMultiSelectLabel(multiSelectControl);
+        syncPersonnelSummaryNote(rowElement);
+
+        if (
+          field === "personnelAssignments" &&
+          multiSelectControl &&
+          multiSelectControl.hasAttribute("open")
+        ) {
+          multiSelectControl.setAttribute("data-pending-save", "true");
+          setRowSaveState(rowElement, "Unsaved changes.", "dirty");
+          return;
+        }
+
+        saveRowDraft(rowElement);
       }
 
       function saveRowDraft(rowElement) {
@@ -1441,6 +1479,8 @@
         const referenceNumber = referenceNumberInput.value.trim();
         const status = statusInput.value;
         const statusUpdate = statusUpdateInput.value.trim();
+
+        clearDeferredRowSave(rowElement);
 
         if (
           row.referenceNumber === referenceNumber &&
@@ -1509,6 +1549,58 @@
         }
 
         return currentRenderedRows[rowIndex] || null;
+      }
+
+      function bindRowMultiSelectToggles(root) {
+        if (!root) {
+          return;
+        }
+
+        root
+          .querySelectorAll('[data-control="personnelAssignments"]')
+          .forEach(function(control) {
+            if (control.getAttribute("data-toggle-bound") === "true") {
+              return;
+            }
+
+            control.addEventListener("toggle", handleRowPersonnelToggle);
+            control.setAttribute("data-toggle-bound", "true");
+          });
+      }
+
+      function clearDeferredPersonnelFilterApply() {
+        const control = byId("personnelFilter");
+        if (!control) {
+          return;
+        }
+
+        control.removeAttribute("data-pending-apply");
+      }
+
+      function handleRowPersonnelToggle(event) {
+        const control = event.currentTarget;
+        if (
+          !control ||
+          control.hasAttribute("open") ||
+          control.getAttribute("data-pending-save") !== "true"
+        ) {
+          return;
+        }
+
+        control.removeAttribute("data-pending-save");
+        saveRowDraft(control.closest("tr"));
+      }
+
+      function clearDeferredRowSave(rowElement) {
+        if (!rowElement) {
+          return;
+        }
+
+        rowElement
+          .querySelectorAll('[data-control="personnelAssignments"]')
+          .forEach(function(control) {
+            control.removeAttribute("data-pending-save");
+          });
       }
 
       function setRowEditingEnabled(rowElement, isEnabled) {

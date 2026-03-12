@@ -19,6 +19,11 @@ The `Email Log` sheet keeps only the essential monitoring columns:
 8. Message ID
 9. With Reply
 
+## Extra tabs
+
+- `Dashboard`: summary metrics and sender/subject counts.
+- `Sender View`: a dropdown-driven tab that lets you choose a sender and see only emails from that sender.
+
 ## How the sheet works
 
 - Only inbound emails are logged.

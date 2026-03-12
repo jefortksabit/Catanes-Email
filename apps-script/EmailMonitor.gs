@@ -3,6 +3,7 @@ const EMAIL_MONITOR_CONFIG = Object.freeze({
   spreadsheetId: '1TYsnQlu8S4CslR42Y18A2d4JD_EGKVmpMEtUug-WqWY',
   logSheetName: 'Email Log',
   dashboardSheetName: 'Dashboard',
+  senderViewSheetName: 'Sender View',
   baseQuery: 'in:anywhere -in:trash -in:spam',
   initialSyncStartDate: '2026-02-01',
   overlapDays: 2,
@@ -49,10 +50,12 @@ function setupEmailMonitor() {
   const spreadsheet = getTargetSpreadsheet_();
   const logSheet = ensureLogSheet_(spreadsheet);
   const dashboardSheet = ensureDashboardSheet_(spreadsheet);
+  const senderViewSheet = ensureSenderViewSheet_(spreadsheet);
 
   configureLogSheet_(logSheet);
   refreshLogSheet_(logSheet);
   seedDashboard_(dashboardSheet);
+  seedSenderView_(senderViewSheet);
 
   spreadsheet.toast(
     'Email monitor sheets are ready. Run Sync now to log inbound emails.',
@@ -111,6 +114,7 @@ function syncMailboxInternal_(options) {
     const spreadsheet = getTargetSpreadsheet_();
     const logSheet = ensureLogSheet_(spreadsheet);
     const dashboardSheet = ensureDashboardSheet_(spreadsheet);
+    const senderViewSheet = ensureSenderViewSheet_(spreadsheet);
     const existingMessageIds = getExistingMessageIds_(logSheet);
     const query = buildQuery_(settings);
     const rows = [];
@@ -178,6 +182,7 @@ function syncMailboxInternal_(options) {
     }
 
     seedDashboard_(dashboardSheet);
+    seedSenderView_(senderViewSheet);
     PropertiesService.getScriptProperties().setProperty(
       EMAIL_MONITOR_CONFIG.scriptProperties.lastSyncAt,
       new Date().toISOString()
@@ -229,6 +234,14 @@ function ensureDashboardSheet_(spreadsheet) {
   let sheet = spreadsheet.getSheetByName(EMAIL_MONITOR_CONFIG.dashboardSheetName);
   if (!sheet) {
     sheet = spreadsheet.insertSheet(EMAIL_MONITOR_CONFIG.dashboardSheetName);
+  }
+  return sheet;
+}
+
+function ensureSenderViewSheet_(spreadsheet) {
+  let sheet = spreadsheet.getSheetByName(EMAIL_MONITOR_CONFIG.senderViewSheetName);
+  if (!sheet) {
+    sheet = spreadsheet.insertSheet(EMAIL_MONITOR_CONFIG.senderViewSheetName);
   }
   return sheet;
 }
@@ -331,6 +344,74 @@ function seedDashboard_(sheet) {
   sheet.setColumnWidth(8, 110);
   sheet.setColumnWidth(10, 280);
   sheet.setColumnWidth(11, 110);
+}
+
+function seedSenderView_(sheet) {
+  const selectedSender = String(sheet.getRange('B1').getValue() || '').trim();
+
+  sheet.clear();
+  sheet.getRange('A:K').breakApart();
+  sheet.setTabColor('#f9ab00');
+
+  sheet.getRange('A1:B1').setValues([['Sender', '']]);
+  sheet.getRange('A2:I2').setValues([
+    ['Choose a sender in B1 to view matching emails from Email Log.', '', '', '', '', '', '', '', ''],
+  ]);
+  sheet.getRange('A4:I4').setValues([EMAIL_MONITOR_CONFIG.headers]);
+  sheet.getRange('A5').setFormula(
+    "=IF($B$1=\"\",\"\",IFERROR(FILTER('Email Log'!A2:I,'Email Log'!B2:B=$B$1),\"\"))"
+  );
+  sheet.getRange('K1').setValue('Sender List');
+  sheet.getRange('K2').setFormula(
+    "=SORT(UNIQUE(FILTER('Email Log'!B2:B,'Email Log'!B2:B<>\"\")))"
+  );
+
+  sheet.getRange('A1:I1')
+    .setFontWeight('bold')
+    .setBackground('#fef7e0');
+  sheet.getRange('A2:I2')
+    .merge()
+    .setWrap(true)
+    .setBackground('#fff8d7');
+  sheet.getRange('A4:I4')
+    .setFontWeight('bold')
+    .setBackground('#f9ab00')
+    .setFontColor('#202124');
+
+  sheet.setFrozenRows(4);
+  EMAIL_MONITOR_CONFIG.columnWidths.forEach(function(width, index) {
+    sheet.setColumnWidth(index + 1, width);
+  });
+  sheet.setColumnWidth(2, 320);
+  sheet.getRange('A:A').setNumberFormat('yyyy-mm-dd hh:mm');
+  sheet.getRange('F:F').setWrapStrategy(SpreadsheetApp.WrapStrategy.WRAP);
+  sheet.hideColumns(11);
+
+  const validation = SpreadsheetApp.newDataValidation()
+    .requireValueInRange(sheet.getRange('K2:K'), true)
+    .setAllowInvalid(false)
+    .build();
+  sheet.getRange('B1').setDataValidation(validation);
+
+  SpreadsheetApp.flush();
+  const availableSenders = sheet
+    .getRange('K2:K')
+    .getDisplayValues()
+    .map(function(row) {
+      return String(row[0] || '').trim();
+    })
+    .filter(function(value) {
+      return value !== '';
+    });
+
+  const senderToUse =
+    availableSenders.indexOf(selectedSender) !== -1
+      ? selectedSender
+      : (availableSenders[0] || '');
+
+  if (senderToUse) {
+    sheet.getRange('B1').setValue(senderToUse);
+  }
 }
 
 function refreshLogSheet_(sheet) {

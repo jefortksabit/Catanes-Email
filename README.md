@@ -18,13 +18,15 @@ The `Email Log` sheet keeps only the essential monitoring columns:
 7. Message
 8. Thread ID
 9. Message ID
-10. Status
-11. Status Update
+10. OPSD Personnel
+11. Status
+12. Status Update
 
 ## Extra tabs
 
 - `Dashboard`: summary metrics and sender/subject counts.
 - `Sender View`: a dropdown-driven tab that lets you choose a sender and see only emails from that sender.
+- `OPSD Personnel`: a manual personnel master list with `UserEmail`, `UserName`, `Division`, `Role`, `Position`, `SortOrder`, and `IsActive` columns.
 
 ## Apps Script files
 
@@ -71,14 +73,14 @@ The same Apps Script project also includes a web app UI for browsing the monitor
 The web app includes:
 
 - summary cards for total emails, senders, completed items, open items, and today's volume
-- a sender dropdown, status filter, search box, and row limit selector
+- a sender dropdown, OPSD personnel multi-select filter, status filter, search box, and row limit selector
 - a live table of email records loaded directly from `Email Log`
-- editable `Reference Number`, `Status`, and `Status Update` fields that save back to Google Sheets
+- editable `Reference Number`, `OPSD Personnel`, `Status`, and `Status Update` fields that save back to Google Sheets
 
 ## Menu actions
 
 - `Bootstrap monitor`: creates the sheets, installs the hourly trigger, and runs the first sync.
-- `Setup sheets only`: rebuilds the `Email Log` and refreshes the `Dashboard`.
+- `Setup sheets only`: rebuilds the `Email Log`, refreshes the `Dashboard`, and ensures the helper tabs are available.
 - `Sync now`: imports newly found inbound emails.
 - `Resync from Feb 1, 2026`: reruns the import window from February 1, 2026 without creating duplicates.
 - `Install hourly trigger`: recreates the time-driven sync trigger.

@@ -19,6 +19,7 @@ function getEmailLogRecordsForWeb_() {
   const values = sheet
     .getRange(2, 1, sheet.getLastRow() - 1, EMAIL_MONITOR_CONFIG.headers.length)
     .getValues();
+  const personnelOptions = getActivePersonnelOptions_();
 
   return values
     .map(function(row) {
@@ -39,6 +40,10 @@ function getEmailLogRecordsForWeb_() {
         messageId: String(
           row[EMAIL_LOG_COLUMN_INDEX.messageId - 1] || ''
         ).trim(),
+        personnelAssignments: normalizePersonnelAssignmentsInput_(
+          row[EMAIL_LOG_COLUMN_INDEX.personnel - 1],
+          personnelOptions
+        ),
         status: normalizeEmailStatusValue_(
           row[EMAIL_LOG_COLUMN_INDEX.status - 1]
         ),
@@ -60,6 +65,7 @@ function buildWebAppPayload_(records, filters) {
   return Object.assign(filteredPayload, {
     summary: buildWebSummary_(records),
     senderOptions: getSenderOptions_(records),
+    personnelOptions: getActivePersonnelOptions_(),
     topSenders: buildTopSenders_(records),
     metadata: {
       lastSyncAt: getLastSyncLabel_(),
@@ -93,6 +99,7 @@ function normalizeWebFilters_(filters) {
 
   return {
     sender: String(filters.sender || '').trim(),
+    personnel: normalizeWebMultiSelectFilter_(filters.personnel),
     query: String(filters.query || '').trim(),
     status:
       EMAIL_MONITOR_CONFIG.statusOptions.indexOf(status) !== -1 ? status : 'all',
@@ -100,8 +107,23 @@ function normalizeWebFilters_(filters) {
   };
 }
 
+function normalizeWebMultiSelectFilter_(value) {
+  return normalizePersonnelAssignmentsInput_(value, getActivePersonnelOptions_());
+}
+
 function recordMatchesFilters_(record, filters) {
   if (filters.sender && record.from !== filters.sender) {
+    return false;
+  }
+
+  if (
+    filters.personnel.length &&
+    !filters.personnel.some(function(person) {
+      return record.personnelAssignments.some(function(assignment) {
+        return assignment === person;
+      });
+    })
+  ) {
     return false;
   }
 
@@ -122,6 +144,7 @@ function recordMatchesFilters_(record, filters) {
     record.message,
     record.threadId,
     record.messageId,
+    record.personnelAssignments.join(' '),
     record.status,
     record.statusUpdate,
   ]
@@ -146,6 +169,7 @@ function formatEmailRecordForWeb_(record) {
     message: record.message || 'No message content.',
     threadId: record.threadId,
     messageId: record.messageId,
+    personnelAssignments: record.personnelAssignments.slice(),
     status: record.status,
     statusUpdate: record.statusUpdate,
   };
@@ -248,6 +272,10 @@ function updateEmailRecordManualFields(payload) {
   const referenceNumber = normalizeManualSheetValue_(
     payload && payload.referenceNumber
   );
+  const personnelAssignments = normalizePersonnelAssignmentsInput_(
+    payload && payload.personnelAssignments,
+    getActivePersonnelOptions_()
+  );
   const status = normalizeEmailStatusValue_(payload && payload.status);
   const statusUpdate = normalizeManualSheetValue_(
     payload && payload.statusUpdate
@@ -279,6 +307,9 @@ function updateEmailRecordManualFields(payload) {
   sheet
     .getRange(matchedRow, EMAIL_LOG_COLUMN_INDEX.referenceNumber)
     .setValue(referenceNumber);
+  sheet
+    .getRange(matchedRow, EMAIL_LOG_COLUMN_INDEX.personnel)
+    .setValue(joinPersonnelAssignments_(personnelAssignments));
   sheet.getRange(matchedRow, EMAIL_LOG_COLUMN_INDEX.status).setValue(status);
   sheet
     .getRange(matchedRow, EMAIL_LOG_COLUMN_INDEX.statusUpdate)
@@ -288,6 +319,7 @@ function updateEmailRecordManualFields(payload) {
   return {
     messageId: messageId,
     referenceNumber: referenceNumber,
+    personnelAssignments: personnelAssignments,
     status: status,
     statusUpdate: statusUpdate,
   };

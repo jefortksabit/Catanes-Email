@@ -52,6 +52,7 @@ function syncMailboxInternal_(options) {
             buildProcessedMessage_(message),
             thread.getId(),
             messageId,
+            '',
             buildInitialEmailStatus_(message.getDate(), replyDates),
             '',
           ]);

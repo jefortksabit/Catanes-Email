@@ -247,7 +247,7 @@
 
       .filter-grid {
         display: grid;
-        grid-template-columns: repeat(5, minmax(0, 1fr));
+        grid-template-columns: repeat(6, minmax(0, 1fr));
         gap: 14px;
       }
 
@@ -284,6 +284,111 @@
       button:focus {
         outline: 3px solid rgba(199, 163, 67, 0.25);
         outline-offset: 2px;
+      }
+
+      .field-block {
+        display: block;
+      }
+
+      .multi-select {
+        position: relative;
+        width: 100%;
+      }
+
+      .multi-select summary {
+        list-style: none;
+        position: relative;
+        min-height: 44px;
+        padding: 11px 38px 11px 12px;
+        border: 1px solid rgba(18, 32, 51, 0.12);
+        border-radius: 16px;
+        background: rgba(255, 255, 255, 0.88);
+        cursor: pointer;
+        display: flex;
+        align-items: center;
+      }
+
+      .multi-select summary::-webkit-details-marker {
+        display: none;
+      }
+
+      .multi-select summary::after {
+        content: "▾";
+        position: absolute;
+        right: 12px;
+        top: 50%;
+        transform: translateY(-50%);
+        color: var(--ink-soft);
+        font-size: 10px;
+      }
+
+      .multi-select[open] summary::after {
+        content: "▴";
+      }
+
+      .multi-select summary:focus {
+        outline: 3px solid rgba(199, 163, 67, 0.25);
+        outline-offset: 2px;
+      }
+
+      .multi-select-label {
+        display: block;
+        width: 100%;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+      }
+
+      .multi-select-menu {
+        position: absolute;
+        top: calc(100% + 6px);
+        left: 0;
+        right: 0;
+        z-index: 4;
+        max-height: 220px;
+        overflow-y: auto;
+        padding: 10px;
+        border-radius: 18px;
+        border: 1px solid rgba(31, 74, 168, 0.12);
+        background: rgba(255, 255, 255, 0.98);
+        box-shadow: 0 18px 30px rgba(21, 35, 61, 0.12);
+      }
+
+      .multi-option {
+        display: flex;
+        align-items: flex-start;
+        gap: 8px;
+        padding: 8px 6px;
+        border-radius: 12px;
+        cursor: pointer;
+      }
+
+      .multi-option:hover {
+        background: var(--paper-strong);
+      }
+
+      .multi-option input {
+        width: auto;
+        margin: 2px 0 0;
+      }
+
+      .multi-option span {
+        margin: 0;
+        color: var(--ink);
+        font-size: var(--font-body);
+        letter-spacing: 0;
+        text-transform: none;
+      }
+
+      .multi-select-empty,
+      .multi-select-hint {
+        color: var(--ink-soft);
+        font-size: var(--font-helper);
+        line-height: 1.4;
+      }
+
+      .multi-select-empty {
+        padding: 6px;
       }
 
       .filter-actions {
@@ -425,7 +530,7 @@
       table {
         width: 100%;
         border-collapse: collapse;
-        min-width: 1280px;
+        min-width: 1440px;
         table-layout: fixed;
         font-size: 8pt;
       }
@@ -544,6 +649,16 @@
         line-height: 1.45;
       }
 
+      .cell-multi-select summary {
+        min-height: 40px;
+        padding: 9px 34px 9px 10px;
+        border-radius: 12px;
+      }
+
+      .cell-multi-select .multi-select-menu {
+        max-height: 180px;
+      }
+
       .editor-stack {
         display: grid;
         gap: 8px;
@@ -575,6 +690,11 @@
 
       .save-note.error {
         color: #b3261e;
+      }
+
+      .multi-select.is-disabled summary {
+        pointer-events: none;
+        opacity: 0.6;
       }
 
       .empty-state {
@@ -745,7 +865,8 @@
           <p class="hero-copy">
             A live web view of inbound email records synced from the monitoring
             spreadsheet. Filter by sender, search the cleaned message text, and
-            update each email's current processing status for
+            update each email's OPSD personnel assignments and current
+            processing status for
             <strong id="heroMailbox"></strong>.
           </p>
         </article>
@@ -817,6 +938,15 @@
               </select>
             </label>
 
+            <label class="field-block">
+              <span>OPSD Personnel</span>
+              <details
+                id="personnelFilter"
+                class="multi-select"
+                data-empty-label="All personnel"
+              ></details>
+            </label>
+
             <label>
               <span>Search</span>
               <input
@@ -875,14 +1005,15 @@
           <div class="table-wrap">
             <table>
               <colgroup>
-                <col style="width: 11%" />
                 <col style="width: 10%" />
+                <col style="width: 9%" />
+                <col style="width: 11%" />
                 <col style="width: 12%" />
                 <col style="width: 14%" />
                 <col style="width: 16%" />
-                <col style="width: 18%" />
-                <col style="width: 8%" />
-                <col style="width: 11%" />
+                <col style="width: 12%" />
+                <col style="width: 7%" />
+                <col style="width: 9%" />
               </colgroup>
               <thead>
                 <tr>
@@ -892,13 +1023,14 @@
                   <th>Recipients</th>
                   <th>Subject / IDs</th>
                   <th>Message</th>
+                  <th>OPSD Personnel</th>
                   <th>Status</th>
                   <th>Status Update</th>
                 </tr>
               </thead>
               <tbody id="emailRows">
                 <tr>
-                  <td colspan="8" class="empty-state">Loading email records...</td>
+                  <td colspan="9" class="empty-state">Loading email records...</td>
                 </tr>
               </tbody>
             </table>
@@ -918,6 +1050,8 @@
       const APP_BOOTSTRAP = <?!= JSON.stringify(appBootstrap) ?>;
       const STATUS_OPTIONS = (APP_BOOTSTRAP.statusOptions || []).slice();
       let currentRenderedRows = [];
+      let currentPersonnelOptions = [];
+      let personnelFilterTimer = null;
 
       document.addEventListener("DOMContentLoaded", initializeApp);
 
@@ -929,6 +1063,7 @@
 
         byId("senderFilter").addEventListener("change", applyFilters);
         byId("statusFilter").addEventListener("change", applyFilters);
+        byId("personnelFilter").addEventListener("change", handlePersonnelFilterChange);
         byId("limitFilter").addEventListener("change", applyFilters);
         byId("refreshButton").addEventListener("click", loadBootstrapData);
         byId("clearButton").addEventListener("click", clearFilters);
@@ -936,6 +1071,7 @@
         byId("emailRows").addEventListener("click", handleRowActionClick);
         byId("emailRows").addEventListener("input", handleRowEditorInput);
         byId("emailRows").addEventListener("change", handleRowEditorChange);
+        document.addEventListener("click", handleDocumentClick);
 
         let searchTimer = null;
         byId("queryFilter").addEventListener("input", function() {
@@ -958,6 +1094,20 @@
           .getWebAppBootstrapData(readFilters());
       }
 
+      function handlePersonnelFilterChange() {
+        syncMultiSelectLabel(byId("personnelFilter"));
+        window.clearTimeout(personnelFilterTimer);
+        personnelFilterTimer = window.setTimeout(applyFilters, 120);
+      }
+
+      function handleDocumentClick(event) {
+        document.querySelectorAll(".multi-select[open]").forEach(function(control) {
+          if (!control.contains(event.target)) {
+            control.removeAttribute("open");
+          }
+        });
+      }
+
       function applyFilters() {
         showLoading("Applying filters...");
         google.script.run
@@ -972,6 +1122,7 @@
       function renderReferenceData(payload) {
         renderSummary(payload.summary || {});
         renderSenderOptions(payload.senderOptions || []);
+        renderPersonnelFilterOptions(payload.personnelOptions || []);
         renderTopSenders(payload.topSenders || []);
         const metadata = payload.metadata || {};
         byId("lastSyncValue").textContent = metadata.lastSyncAt || "Not synced yet";
@@ -1028,6 +1179,23 @@
         }
       }
 
+      function renderPersonnelFilterOptions(personnelOptions) {
+        const control = byId("personnelFilter");
+        const selectedValues = getSelectedMultiSelectValues(
+          control,
+          "personnelFilter"
+        );
+
+        currentPersonnelOptions = personnelOptions.slice();
+        refreshMultiSelectControl(
+          control,
+          mergeUniqueOptionValues(currentPersonnelOptions, selectedValues),
+          selectedValues,
+          "personnelFilter",
+          "All personnel"
+        );
+      }
+
       function renderTopSenders(topSenders) {
         const container = byId("topSenders");
         if (!topSenders.length) {
@@ -1080,6 +1248,9 @@
         if (filters.sender) {
           pills.push("Sender: " + filters.sender);
         }
+        if (filters.personnel && filters.personnel.length) {
+          pills.push("Personnel: " + filters.personnel.join(", "));
+        }
         if (filters.status && filters.status !== "all") {
           pills.push("Status: " + filters.status);
         }
@@ -1101,7 +1272,7 @@
         updatePrintAllButtonState();
         if (!rows.length) {
           body.innerHTML =
-            '<tr><td colspan="8" class="empty-state">No emails match the current filters.</td></tr>';
+            '<tr><td colspan="9" class="empty-state">No emails match the current filters.</td></tr>';
           return;
         }
 
@@ -1157,6 +1328,23 @@
               "</div>" +
               "</td>" +
               "<td>" +
+              '<div class="editor-stack">' +
+              buildMultiSelectControlHtml(
+                mergeUniqueOptionValues(
+                  currentPersonnelOptions,
+                  row.personnelAssignments || []
+                ),
+                row.personnelAssignments || [],
+                "personnelAssignments",
+                "Select personnel",
+                "cell-multi-select"
+              ) +
+              '<div class="cell-subtle" data-role="personnel-summary">' +
+              escapeHtml(formatPersonnelSummary(row.personnelAssignments || [])) +
+              "</div>" +
+              "</div>" +
+              "</td>" +
+              "<td>" +
               '<select class="cell-input cell-select" data-field="status">' +
               buildStatusSelectOptions(row.status) +
               "</select>" +
@@ -1207,6 +1395,8 @@
         }
 
         const rowElement = event.target.closest("tr");
+        syncMultiSelectLabel(event.target.closest(".multi-select"));
+        syncPersonnelSummaryNote(rowElement);
         setRowSaveState(rowElement, "Unsaved changes.", "dirty");
       }
 
@@ -1216,6 +1406,8 @@
           return;
         }
 
+        syncMultiSelectLabel(event.target.closest(".multi-select"));
+        syncPersonnelSummaryNote(event.target.closest("tr"));
         saveRowDraft(event.target.closest("tr"));
       }
 
@@ -1224,12 +1416,25 @@
         const referenceNumberInput = rowElement.querySelector(
           '[data-field="referenceNumber"]'
         );
+        const personnelControl = rowElement.querySelector(
+          '[data-control="personnelAssignments"]'
+        );
         const statusInput = rowElement.querySelector('[data-field="status"]');
         const statusUpdateInput = rowElement.querySelector(
           '[data-field="statusUpdate"]'
         );
+        const personnelAssignments = getSelectedMultiSelectValues(
+          rowElement,
+          "personnelAssignments"
+        );
 
-        if (!row || !referenceNumberInput || !statusInput || !statusUpdateInput) {
+        if (
+          !row ||
+          !referenceNumberInput ||
+          !personnelControl ||
+          !statusInput ||
+          !statusUpdateInput
+        ) {
           return;
         }
 
@@ -1239,6 +1444,7 @@
 
         if (
           row.referenceNumber === referenceNumber &&
+          areSelectionListsEqual(row.personnelAssignments || [], personnelAssignments) &&
           row.status === status &&
           row.statusUpdate === statusUpdate
         ) {
@@ -1252,9 +1458,24 @@
         google.script.run
           .withSuccessHandler(function(updatedRow) {
             row.referenceNumber = updatedRow.referenceNumber || "";
+            row.personnelAssignments = normalizeSelectionList(
+              updatedRow.personnelAssignments || [],
+              currentPersonnelOptions
+            );
             row.status = updatedRow.status || STATUS_OPTIONS[0] || "Pending";
             row.statusUpdate = updatedRow.statusUpdate || "";
             referenceNumberInput.value = row.referenceNumber;
+            refreshMultiSelectControl(
+              personnelControl,
+              mergeUniqueOptionValues(
+                currentPersonnelOptions,
+                row.personnelAssignments
+              ),
+              row.personnelAssignments,
+              "personnelAssignments",
+              "Select personnel"
+            );
+            syncPersonnelSummaryNote(rowElement);
             statusInput.value = row.status;
             statusUpdateInput.value = row.statusUpdate;
             setRowSaveState(rowElement, "Saved in Google Sheet.", "saved");
@@ -1271,6 +1492,7 @@
           .updateEmailRecordManualFields({
             messageId: row.messageId,
             referenceNumber: referenceNumber,
+            personnelAssignments: personnelAssignments,
             status: status,
             statusUpdate: statusUpdate,
           });
@@ -1299,6 +1521,12 @@
           .forEach(function(element) {
             element.disabled = !isEnabled;
           });
+        rowElement.querySelectorAll(".multi-select").forEach(function(control) {
+          control.classList.toggle("is-disabled", !isEnabled);
+          if (!isEnabled) {
+            control.removeAttribute("open");
+          }
+        });
       }
 
       function setRowSaveState(rowElement, message, state) {
@@ -1361,6 +1589,9 @@
 
       function buildPrintableEmailHtml(row) {
         const statusLabel = row.status || STATUS_OPTIONS[0] || "Pending";
+        const personnelLabel = formatPersonnelSummary(
+          row.personnelAssignments || []
+        );
         const messageHtml = formatPrintableMultiline(
           row.message || "No message content."
         );
@@ -1399,6 +1630,7 @@
           buildPrintDetailCard("To", row.to || "No recipients listed.") +
           buildPrintDetailCard("Cc", row.cc || "No cc recipients.") +
           buildPrintDetailCard("Subject", row.subject || "(No subject)") +
+          buildPrintDetailCard("OPSD Personnel", personnelLabel) +
           buildPrintDetailCard("Status", statusLabel) +
           buildPrintDetailCard("Thread ID", row.threadId || "Not available") +
           buildPrintDetailCard("Message ID", row.messageId || "Not available") +
@@ -1481,6 +1713,9 @@
 
       function buildPrintableEmailSectionHtml(row, index) {
         const statusLabel = row.status || STATUS_OPTIONS[0] || "Pending";
+        const personnelLabel = formatPersonnelSummary(
+          row.personnelAssignments || []
+        );
         const messageHtml = formatPrintableMultiline(
           row.message || "No message content."
         );
@@ -1501,6 +1736,7 @@
           buildPrintDetailCard("From", row.from || "(Unknown sender)") +
           buildPrintDetailCard("To", row.to || "No recipients listed.") +
           buildPrintDetailCard("Cc", row.cc || "No cc recipients.") +
+          buildPrintDetailCard("OPSD Personnel", personnelLabel) +
           buildPrintDetailCard("Status", statusLabel) +
           buildPrintDetailCard("Thread ID", row.threadId || "Not available") +
           buildPrintDetailCard("Message ID", row.messageId || "Not available") +
@@ -1517,6 +1753,11 @@
         const segments = [];
         if (filters.sender) {
           segments.push("Sender: " + filters.sender);
+        }
+        if (filters.personnel && filters.personnel.length) {
+          segments.push("Personnel: " + filters.personnel.join(", "));
+        } else {
+          segments.push("Personnel: All personnel");
         }
         if (filters.status && filters.status !== "all") {
           segments.push("Status: " + filters.status);
@@ -1543,17 +1784,313 @@
         return escapeHtml(value).replace(/\r?\n/g, "<br>");
       }
 
+      function buildMultiSelectControlHtml(
+        options,
+        selectedValues,
+        fieldName,
+        emptyLabel,
+        extraClassName
+      ) {
+        const classes = ["multi-select"];
+        if (extraClassName) {
+          classes.push(extraClassName);
+        }
+
+        return (
+          '<details class="' +
+          escapeAttribute(classes.join(" ")) +
+          '" data-control="' +
+          escapeAttribute(fieldName) +
+          '" data-empty-label="' +
+          escapeAttribute(emptyLabel) +
+          '">' +
+          buildMultiSelectControlInnerHtml(
+            options,
+            selectedValues,
+            fieldName,
+            emptyLabel
+          ) +
+          "</details>"
+        );
+      }
+
+      function buildMultiSelectControlInnerHtml(
+        options,
+        selectedValues,
+        fieldName,
+        emptyLabel
+      ) {
+        return (
+          '<summary>' +
+          '<span class="multi-select-label" data-role="selection-label">' +
+          escapeHtml(
+            formatMultiSelectLabel(
+              normalizeSelectionList(selectedValues, options),
+              emptyLabel
+            )
+          ) +
+          "</span>" +
+          "</summary>" +
+          '<div class="multi-select-menu">' +
+          buildMultiSelectOptionsHtml(options, selectedValues, fieldName) +
+          "</div>"
+        );
+      }
+
+      function buildMultiSelectOptionsHtml(options, selectedValues, fieldName) {
+        const optionList = mergeUniqueOptionValues(options, selectedValues);
+        const normalizedSelected = normalizeSelectionList(
+          selectedValues,
+          optionList
+        );
+
+        if (!optionList.length) {
+          return (
+            '<div class="multi-select-empty">' +
+            "No OPSD personnel entries are available yet." +
+            "</div>"
+          );
+        }
+
+        return optionList
+          .map(function(option) {
+            return buildMultiSelectOptionHtml(
+              fieldName,
+              option,
+              normalizedSelected.indexOf(option) !== -1
+            );
+          })
+          .join("");
+      }
+
+      function buildMultiSelectOptionHtml(fieldName, option, isChecked) {
+        return (
+          '<label class="multi-option">' +
+          '<input type="checkbox" data-field="' +
+          escapeAttribute(fieldName) +
+          '" value="' +
+          escapeAttribute(option) +
+          '"' +
+          (isChecked ? " checked" : "") +
+          ">" +
+          "<span>" +
+          escapeHtml(option) +
+          "</span>" +
+          "</label>"
+        );
+      }
+
+      function refreshMultiSelectControl(
+        control,
+        options,
+        selectedValues,
+        fieldName,
+        emptyLabel
+      ) {
+        if (!control) {
+          return;
+        }
+
+        control.setAttribute("data-control", fieldName);
+        control.setAttribute("data-empty-label", emptyLabel);
+        control.innerHTML = buildMultiSelectControlInnerHtml(
+          options,
+          selectedValues,
+          fieldName,
+          emptyLabel
+        );
+        syncMultiSelectLabel(control);
+      }
+
+      function syncMultiSelectLabel(control) {
+        if (!control) {
+          return;
+        }
+
+        const fieldName = control.getAttribute("data-control");
+        const label = control.querySelector('[data-role="selection-label"]');
+        if (!fieldName || !label) {
+          return;
+        }
+
+        label.textContent = formatMultiSelectLabel(
+          getSelectedMultiSelectValues(control, fieldName),
+          control.getAttribute("data-empty-label") || "Select items"
+        );
+      }
+
+      function getSelectedMultiSelectValues(root, fieldName) {
+        if (!root) {
+          return [];
+        }
+
+        return normalizeSelectionList(
+          Array.prototype.slice
+            .call(root.querySelectorAll('input[data-field="' + fieldName + '"]:checked'))
+            .map(function(input) {
+              return input.value;
+            }),
+          mergeUniqueOptionValues(currentPersonnelOptions, [])
+        );
+      }
+
+      function mergeUniqueOptionValues(primaryValues, secondaryValues) {
+        const seen = {};
+        const merged = [];
+
+        [primaryValues || [], secondaryValues || []].forEach(function(values) {
+          values.forEach(function(value) {
+            const normalizedValue = String(value || "").trim();
+            const key = normalizedValue.toLowerCase();
+
+            if (!normalizedValue || seen[key]) {
+              return;
+            }
+
+            seen[key] = true;
+            merged.push(normalizedValue);
+          });
+        });
+
+        return merged;
+      }
+
+      function normalizeSelectionList(values, options) {
+        const optionList = mergeUniqueOptionValues(options, []);
+        const optionLookup = optionList.reduce(function(map, option) {
+          map[option.toLowerCase()] = option;
+          return map;
+        }, {});
+        const optionOrder = optionList.reduce(function(map, option, index) {
+          map[option.toLowerCase()] = index;
+          return map;
+        }, {});
+        const seen = {};
+        const rawValues = Array.isArray(values)
+          ? values
+          : String(values || "").split(/\s*,\s*|\s*;\s*|\r?\n+/);
+
+        return rawValues
+          .map(function(value) {
+            const normalizedValue = String(value || "").trim();
+            if (!normalizedValue) {
+              return "";
+            }
+
+            return (
+              optionLookup[normalizedValue.toLowerCase()] || normalizedValue
+            );
+          })
+          .filter(function(value) {
+            const key = value.toLowerCase();
+            if (!value || seen[key]) {
+              return false;
+            }
+            seen[key] = true;
+            return true;
+          })
+          .sort(function(left, right) {
+            const leftKey = left.toLowerCase();
+            const rightKey = right.toLowerCase();
+            const leftOrder = Object.prototype.hasOwnProperty.call(
+              optionOrder,
+              leftKey
+            )
+              ? optionOrder[leftKey]
+              : Number.MAX_SAFE_INTEGER;
+            const rightOrder = Object.prototype.hasOwnProperty.call(
+              optionOrder,
+              rightKey
+            )
+              ? optionOrder[rightKey]
+              : Number.MAX_SAFE_INTEGER;
+
+            return leftOrder - rightOrder || left.localeCompare(right);
+          });
+      }
+
+      function areSelectionListsEqual(left, right) {
+        const normalizedLeft = normalizeSelectionList(
+          left,
+          mergeUniqueOptionValues(currentPersonnelOptions, left || [])
+        );
+        const normalizedRight = normalizeSelectionList(
+          right,
+          mergeUniqueOptionValues(currentPersonnelOptions, right || [])
+        );
+
+        if (normalizedLeft.length !== normalizedRight.length) {
+          return false;
+        }
+
+        return normalizedLeft.every(function(value, index) {
+          return value === normalizedRight[index];
+        });
+      }
+
+      function formatMultiSelectLabel(values, emptyLabel) {
+        const normalizedValues = normalizeSelectionList(values, currentPersonnelOptions);
+        if (!normalizedValues.length) {
+          return emptyLabel;
+        }
+        if (normalizedValues.length <= 2) {
+          return normalizedValues.join(", ");
+        }
+
+        return (
+          normalizedValues.slice(0, 2).join(", ") +
+          " +" +
+          (normalizedValues.length - 2)
+        );
+      }
+
+      function formatPersonnelSummary(values) {
+        const normalizedValues = normalizeSelectionList(
+          values,
+          mergeUniqueOptionValues(currentPersonnelOptions, values || [])
+        );
+        return normalizedValues.length
+          ? normalizedValues.join(", ")
+          : "Unassigned";
+      }
+
+      function syncPersonnelSummaryNote(rowElement) {
+        if (!rowElement) {
+          return;
+        }
+
+        const note = rowElement.querySelector('[data-role="personnel-summary"]');
+        if (!note) {
+          return;
+        }
+
+        note.textContent = formatPersonnelSummary(
+          getSelectedMultiSelectValues(rowElement, "personnelAssignments")
+        );
+      }
+
       function clearFilters() {
         byId("senderFilter").value = "";
         byId("statusFilter").value = "all";
         byId("queryFilter").value = "";
         byId("limitFilter").value = "150";
+        refreshMultiSelectControl(
+          byId("personnelFilter"),
+          currentPersonnelOptions,
+          [],
+          "personnelFilter",
+          "All personnel"
+        );
         applyFilters();
       }
 
       function readFilters() {
         return {
           sender: byId("senderFilter").value,
+          personnel: getSelectedMultiSelectValues(
+            byId("personnelFilter"),
+            "personnelFilter"
+          ),
           status: byId("statusFilter").value,
           query: byId("queryFilter").value,
           limit: byId("limitFilter").value,
@@ -1569,7 +2106,7 @@
             ? error.message
             : "The web app could not load data from the monitoring sheet.";
         byId("emailRows").innerHTML =
-          '<tr><td colspan="8" class="empty-state">' +
+          '<tr><td colspan="9" class="empty-state">' +
           escapeHtml(message) +
           "</td></tr>";
         byId("resultsLabel").textContent = "Unable to load email records.";

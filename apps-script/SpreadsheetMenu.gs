@@ -22,11 +22,13 @@ function setupEmailMonitor() {
   const logSheet = ensureLogSheet_(spreadsheet);
   const dashboardSheet = ensureDashboardSheet_(spreadsheet);
   const senderViewSheet = ensureSenderViewSheet_(spreadsheet);
+  const personnelSheet = ensurePersonnelSheet_(spreadsheet);
 
   configureLogSheet_(logSheet);
   refreshLogSheet_(logSheet);
   seedDashboard_(dashboardSheet);
   seedSenderView_(senderViewSheet);
+  configurePersonnelSheet_(personnelSheet);
 
   spreadsheet.toast(
     'Email monitor sheets are ready. Run Sync now to log inbound emails.',

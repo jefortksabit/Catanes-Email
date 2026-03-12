@@ -10,6 +10,7 @@ const EMAIL_MONITOR_CONFIG = Object.freeze({
   logSheetName: 'Email Log',
   dashboardSheetName: 'Dashboard',
   senderViewSheetName: 'Sender View',
+  personnelSheetName: 'OPSD Personnel',
   baseQuery: 'in:anywhere -in:trash -in:spam',
   initialSyncStartDate: '2026-02-01',
   overlapDays: 2,
@@ -47,7 +48,7 @@ const EMAIL_MONITOR_CONFIG = Object.freeze({
     'With Reply',
     'Status Update',
   ],
-  headers: [
+  currentHeadersWithoutPersonnel: [
     'Reference Number',
     'Date Received',
     'From',
@@ -60,7 +61,32 @@ const EMAIL_MONITOR_CONFIG = Object.freeze({
     'Status',
     'Status Update',
   ],
-  columnWidths: [170, 155, 260, 260, 220, 320, 430, 170, 190, 130, 220],
+  headers: [
+    'Reference Number',
+    'Date Received',
+    'From',
+    'To',
+    'Cc',
+    'Subject',
+    'Message',
+    'Thread ID',
+    'Message ID',
+    'OPSD Personnel',
+    'Status',
+    'Status Update',
+  ],
+  columnWidths: [170, 155, 260, 260, 220, 320, 430, 170, 190, 240, 130, 220],
+  personnelAssignmentSeparator: ', ',
+  personnelHeaders: [
+    'UserEmail',
+    'UserName',
+    'Division',
+    'Role',
+    'Position',
+    'SortOrder',
+    'IsActive',
+  ],
+  personnelColumnWidths: [260, 220, 180, 170, 220, 100, 90],
 });
 
 const EMAIL_LOG_COLUMN_INDEX = Object.freeze({
@@ -73,8 +99,19 @@ const EMAIL_LOG_COLUMN_INDEX = Object.freeze({
   message: 7,
   threadId: 8,
   messageId: 9,
-  status: 10,
-  statusUpdate: 11,
+  personnel: 10,
+  status: 11,
+  statusUpdate: 12,
+});
+
+const OPSD_PERSONNEL_COLUMN_INDEX = Object.freeze({
+  userEmail: 1,
+  userName: 2,
+  division: 3,
+  role: 4,
+  position: 5,
+  sortOrder: 6,
+  isActive: 7,
 });
 
 const WEB_APP_CONFIG = Object.freeze({

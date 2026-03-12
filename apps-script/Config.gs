@@ -13,7 +13,7 @@ const EMAIL_MONITOR_CONFIG = Object.freeze({
   scriptProperties: {
     lastSyncAt: 'EMAIL_MONITOR_LAST_SYNC_AT',
   },
-  headers: [
+  legacyHeaders: [
     'Date Received',
     'From',
     'To',
@@ -24,7 +24,34 @@ const EMAIL_MONITOR_CONFIG = Object.freeze({
     'Message ID',
     'With Reply',
   ],
-  columnWidths: [155, 260, 260, 220, 320, 430, 170, 190, 110],
+  headers: [
+    'Reference Number',
+    'Date Received',
+    'From',
+    'To',
+    'Cc',
+    'Subject',
+    'Message',
+    'Thread ID',
+    'Message ID',
+    'With Reply',
+    'Status Update',
+  ],
+  columnWidths: [170, 155, 260, 260, 220, 320, 430, 170, 190, 110, 220],
+});
+
+const EMAIL_LOG_COLUMN_INDEX = Object.freeze({
+  referenceNumber: 1,
+  dateReceived: 2,
+  from: 3,
+  to: 4,
+  cc: 5,
+  subject: 6,
+  message: 7,
+  threadId: 8,
+  messageId: 9,
+  withReply: 10,
+  statusUpdate: 11,
 });
 
 const WEB_APP_CONFIG = Object.freeze({

@@ -43,6 +43,7 @@ function syncMailboxInternal_(options) {
           }
 
           rows.push([
+            '',
             message.getDate(),
             message.getFrom(),
             message.getTo(),
@@ -52,6 +53,7 @@ function syncMailboxInternal_(options) {
             thread.getId(),
             messageId,
             hasReplyAfterMessage_(message.getDate(), replyDates),
+            '',
           ]);
 
           existingMessageIds.add(messageId);
@@ -67,7 +69,7 @@ function syncMailboxInternal_(options) {
 
     if (rows.length) {
       rows.sort(function(left, right) {
-        return left[0].getTime() - right[0].getTime();
+        return left[1].getTime() - right[1].getTime();
       });
 
       appendRows_(logSheet, rows);

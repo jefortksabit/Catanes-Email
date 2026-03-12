@@ -23,15 +23,26 @@ function getEmailLogRecordsForWeb_() {
   return values
     .map(function(row) {
       return {
-        dateReceived: row[0] instanceof Date ? row[0] : new Date(row[0]),
-        from: String(row[1] || '').trim(),
-        to: String(row[2] || '').trim(),
-        cc: String(row[3] || '').trim(),
-        subject: String(row[4] || '').trim(),
-        message: String(row[5] || '').trim(),
-        threadId: String(row[6] || '').trim(),
-        messageId: String(row[7] || '').trim(),
-        withReply: row[8] === true,
+        referenceNumber: String(
+          row[EMAIL_LOG_COLUMN_INDEX.referenceNumber - 1] || ''
+        ).trim(),
+        dateReceived:
+          row[EMAIL_LOG_COLUMN_INDEX.dateReceived - 1] instanceof Date
+            ? row[EMAIL_LOG_COLUMN_INDEX.dateReceived - 1]
+            : new Date(row[EMAIL_LOG_COLUMN_INDEX.dateReceived - 1]),
+        from: String(row[EMAIL_LOG_COLUMN_INDEX.from - 1] || '').trim(),
+        to: String(row[EMAIL_LOG_COLUMN_INDEX.to - 1] || '').trim(),
+        cc: String(row[EMAIL_LOG_COLUMN_INDEX.cc - 1] || '').trim(),
+        subject: String(row[EMAIL_LOG_COLUMN_INDEX.subject - 1] || '').trim(),
+        message: String(row[EMAIL_LOG_COLUMN_INDEX.message - 1] || '').trim(),
+        threadId: String(row[EMAIL_LOG_COLUMN_INDEX.threadId - 1] || '').trim(),
+        messageId: String(
+          row[EMAIL_LOG_COLUMN_INDEX.messageId - 1] || ''
+        ).trim(),
+        withReply: row[EMAIL_LOG_COLUMN_INDEX.withReply - 1] === true,
+        statusUpdate: String(
+          row[EMAIL_LOG_COLUMN_INDEX.statusUpdate - 1] || ''
+        ).trim(),
       };
     })
     .filter(function(record) {
@@ -107,6 +118,7 @@ function recordMatchesFilters_(record, filters) {
   }
 
   const haystack = [
+    record.referenceNumber,
     record.from,
     record.to,
     record.cc,
@@ -114,6 +126,7 @@ function recordMatchesFilters_(record, filters) {
     record.message,
     record.threadId,
     record.messageId,
+    record.statusUpdate,
   ]
     .join(' ')
     .toLowerCase();
@@ -123,6 +136,7 @@ function recordMatchesFilters_(record, filters) {
 
 function formatEmailRecordForWeb_(record) {
   return {
+    referenceNumber: record.referenceNumber,
     dateReceived: Utilities.formatDate(
       record.dateReceived,
       EMAIL_MONITOR_CONFIG.timeZone,
@@ -136,6 +150,7 @@ function formatEmailRecordForWeb_(record) {
     threadId: record.threadId,
     messageId: record.messageId,
     withReply: record.withReply,
+    statusUpdate: record.statusUpdate,
   };
 }
 
@@ -222,4 +237,59 @@ function getLastSyncLabel_() {
     EMAIL_MONITOR_CONFIG.timeZone,
     'yyyy-MM-dd HH:mm'
   );
+}
+
+function updateEmailRecordManualFields(payload) {
+  const messageId = String((payload && payload.messageId) || '').trim();
+  if (!messageId) {
+    throw new Error('Message ID is required to update the row.');
+  }
+
+  const referenceNumber = normalizeManualSheetValue_(
+    payload && payload.referenceNumber
+  );
+  const statusUpdate = normalizeManualSheetValue_(
+    payload && payload.statusUpdate
+  );
+  const sheet = ensureLogSheet_(getTargetSpreadsheet_());
+  const lastRow = sheet.getLastRow();
+
+  if (lastRow <= 1) {
+    throw new Error('No email records are available to update.');
+  }
+
+  const messageIds = sheet
+    .getRange(2, EMAIL_LOG_COLUMN_INDEX.messageId, lastRow - 1, 1)
+    .getDisplayValues();
+  let matchedRow = 0;
+
+  messageIds.some(function(row, index) {
+    if (String(row[0] || '').trim() === messageId) {
+      matchedRow = index + 2;
+      return true;
+    }
+    return false;
+  });
+
+  if (!matchedRow) {
+    throw new Error('The selected email could not be found in the sheet.');
+  }
+
+  sheet
+    .getRange(matchedRow, EMAIL_LOG_COLUMN_INDEX.referenceNumber)
+    .setValue(referenceNumber);
+  sheet
+    .getRange(matchedRow, EMAIL_LOG_COLUMN_INDEX.statusUpdate)
+    .setValue(statusUpdate);
+  SpreadsheetApp.flush();
+
+  return {
+    messageId: messageId,
+    referenceNumber: referenceNumber,
+    statusUpdate: statusUpdate,
+  };
+}
+
+function normalizeManualSheetValue_(value) {
+  return String(value || '').trim();
 }

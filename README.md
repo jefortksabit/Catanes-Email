@@ -9,15 +9,17 @@ This project contains a Google Apps Script that logs inbound mailbox activity fr
 
 The `Email Log` sheet keeps only the essential monitoring columns:
 
-1. Date Received
-2. From
-3. To
-4. Cc
-5. Subject
-6. Message
-7. Thread ID
-8. Message ID
-9. With Reply
+1. Reference Number
+2. Date Received
+3. From
+4. To
+5. Cc
+6. Subject
+7. Message
+8. Thread ID
+9. Message ID
+10. With Reply
+11. Status Update
 
 ## Extra tabs
 
@@ -41,6 +43,7 @@ The project is split into smaller Apps Script files for easier maintenance:
 - Only inbound emails are logged.
 - The first sync baseline is fixed at February 1, 2026. After that, syncs continue incrementally for newer emails.
 - `With Reply` is a checkbox that turns `TRUE` when the same thread contains a later reply sent from `jcatanes@ched.gov.ph`.
+- `Reference Number` and `Status Update` are manual columns that stay editable in the sheet.
 - `Message` is generated from the cleaned plain-text body of the email after removing common quoted-thread markers and trimming the result for the sheet.
 
 ## Setup
@@ -70,6 +73,7 @@ The web app includes:
 - summary cards for total emails, senders, replied threads, pending replies, and today's volume
 - a sender dropdown, reply-status filter, search box, and row limit selector
 - a live table of email records loaded directly from `Email Log`
+- editable `Reference Number` and `Status Update` fields that save back to Google Sheets
 
 ## Menu actions
 

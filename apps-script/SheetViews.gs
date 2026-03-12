@@ -12,6 +12,11 @@ function ensureLogSheet_(spreadsheet) {
     return sheet;
   }
 
+  if (canMigrateLogSheetSchema_(sheet)) {
+    migrateLogSheetSchema_(sheet);
+    return sheet;
+  }
+
   if (sheet.getLastRow() > 0 || sheet.getLastColumn() > 0) {
     sheet.setName(
       EMAIL_MONITOR_CONFIG.logSheetName +
@@ -55,13 +60,67 @@ function isSheetSchemaCurrent_(sheet) {
     return false;
   }
 
-  const currentHeaders = sheet
-    .getRange(1, 1, 1, EMAIL_MONITOR_CONFIG.headers.length)
-    .getValues()[0];
+  const currentHeaders = getSheetHeaderValues_(sheet);
 
   return EMAIL_MONITOR_CONFIG.headers.every(function(header, index) {
     return currentHeaders[index] === header;
   });
+}
+
+function canMigrateLogSheetSchema_(sheet) {
+  if (sheet.getLastRow() < 1) {
+    return true;
+  }
+
+  const currentHeaders = getSheetHeaderValues_(sheet);
+  return EMAIL_MONITOR_CONFIG.legacyHeaders.every(function(header) {
+    return currentHeaders.indexOf(header) !== -1;
+  });
+}
+
+function migrateLogSheetSchema_(sheet) {
+  const lastRow = sheet.getLastRow();
+  const lastColumn = Math.max(sheet.getLastColumn(), EMAIL_MONITOR_CONFIG.legacyHeaders.length);
+  const currentHeaders = getSheetHeaderValues_(sheet);
+  const currentRows =
+    lastRow > 1
+      ? sheet.getRange(2, 1, lastRow - 1, lastColumn).getValues()
+      : [];
+  const filter = sheet.getFilter();
+
+  if (filter) {
+    filter.remove();
+  }
+
+  const migratedRows = currentRows.map(function(row) {
+    return EMAIL_MONITOR_CONFIG.headers.map(function(header) {
+      const sourceIndex = currentHeaders.indexOf(header);
+      if (sourceIndex === -1) {
+        return header === 'With Reply' ? false : '';
+      }
+      return row[sourceIndex];
+    });
+  });
+
+  sheet.clear();
+  configureLogSheet_(sheet);
+
+  if (migratedRows.length) {
+    appendRows_(sheet, migratedRows);
+    refreshLogSheet_(sheet);
+  }
+}
+
+function getSheetHeaderValues_(sheet) {
+  const headerWidth = Math.max(
+    sheet.getLastColumn(),
+    EMAIL_MONITOR_CONFIG.headers.length
+  );
+  if (headerWidth < 1) {
+    return [];
+  }
+
+  return sheet.getRange(1, 1, 1, headerWidth).getValues()[0];
 }
 
 function configureLogSheet_(sheet) {
@@ -85,8 +144,10 @@ function configureLogSheet_(sheet) {
     sheet.setColumnWidth(index + 1, width);
   });
 
-  sheet.getRange('A:A').setNumberFormat('yyyy-mm-dd hh:mm');
-  sheet.getRange('F:F').setWrapStrategy(SpreadsheetApp.WrapStrategy.WRAP);
+  sheet.getRange('A:A').setNumberFormat('@');
+  sheet.getRange('B:B').setNumberFormat('yyyy-mm-dd hh:mm');
+  sheet.getRange('G:G').setWrapStrategy(SpreadsheetApp.WrapStrategy.WRAP);
+  sheet.getRange('K:K').setWrapStrategy(SpreadsheetApp.WrapStrategy.WRAP);
   applyCheckboxColumn_(sheet);
 }
 
@@ -108,26 +169,26 @@ function seedDashboard_(sheet) {
     ['Received This Week'],
   ]);
   sheet.getRange('B5:B9').setFormulas([
-    ["=MAX(COUNTA('Email Log'!H:H)-1,0)"],
-    ["=COUNTIF('Email Log'!I:I,TRUE)"],
-    ["=COUNTIF('Email Log'!I:I,FALSE)"],
-    ["=COUNTIFS('Email Log'!A:A,\">=\"&TODAY(),'Email Log'!A:A,\"<\"&TODAY()+1)"],
-    ["=COUNTIFS('Email Log'!A:A,\">=\"&(TODAY()-WEEKDAY(TODAY(),2)+1),'Email Log'!A:A,\"<\"&(TODAY()-WEEKDAY(TODAY(),2)+8))"],
+    ["=MAX(COUNTA('Email Log'!I:I)-1,0)"],
+    ["=COUNTIF('Email Log'!J:J,TRUE)"],
+    ["=COUNTIF('Email Log'!J:J,FALSE)"],
+    ["=COUNTIFS('Email Log'!B:B,\">=\"&TODAY(),'Email Log'!B:B,\"<\"&TODAY()+1)"],
+    ["=COUNTIFS('Email Log'!B:B,\">=\"&(TODAY()-WEEKDAY(TODAY(),2)+1),'Email Log'!B:B,\"<\"&(TODAY()-WEEKDAY(TODAY(),2)+8))"],
   ]);
 
   sheet.getRange('D4:E4').setValues([['Top Senders', 'Emails']]);
   sheet.getRange('D5').setFormula(
-    "=QUERY('Email Log'!A2:I,\"select B, count(B) where B is not null group by B order by count(B) desc limit 10 label B 'From', count(B) 'Emails'\",0)"
+    "=QUERY('Email Log'!A2:K,\"select C, count(C) where C is not null group by C order by count(C) desc limit 10 label C 'From', count(C) 'Emails'\",0)"
   );
 
   sheet.getRange('G4:H4').setValues([['Pending Reply By Sender', 'Emails']]);
   sheet.getRange('G5').setFormula(
-    "=QUERY('Email Log'!A2:I,\"select B, count(B) where B is not null and I = FALSE group by B order by count(B) desc limit 10 label B 'From', count(B) 'Emails'\",0)"
+    "=QUERY('Email Log'!A2:K,\"select C, count(C) where C is not null and J = FALSE group by C order by count(C) desc limit 10 label C 'From', count(C) 'Emails'\",0)"
   );
 
   sheet.getRange('J4:K4').setValues([['Common Subjects', 'Emails']]);
   sheet.getRange('J5').setFormula(
-    "=QUERY('Email Log'!A2:I,\"select E, count(E) where E is not null group by E order by count(E) desc limit 10 label E 'Subject', count(E) 'Emails'\",0)"
+    "=QUERY('Email Log'!A2:K,\"select F, count(F) where F is not null group by F order by count(F) desc limit 10 label F 'Subject', count(F) 'Emails'\",0)"
   );
 
   sheet.getRange('A1:K4')
@@ -149,30 +210,31 @@ function seedSenderView_(sheet) {
   const selectedSender = String(sheet.getRange('B1').getValue() || '').trim();
 
   sheet.clear();
-  sheet.getRange('A:K').breakApart();
+  sheet.getRange('A:M').breakApart();
   sheet.setTabColor('#f9ab00');
 
-  sheet.getRange('A1:B1').setValues([['Sender', '']]);
-  sheet.getRange('A2:I2').setValues([
-    ['Choose a sender in B1 to view matching emails from Email Log.', '', '', '', '', '', '', '', ''],
+  sheet.getRange('A1').setValue('Sender');
+  sheet.getRange('B1:D1').merge().setValue('');
+  sheet.getRange('A2:K2').setValues([
+    ['Choose a sender in B1 to view matching emails from Email Log.', '', '', '', '', '', '', '', '', '', ''],
   ]);
-  sheet.getRange('A4:I4').setValues([EMAIL_MONITOR_CONFIG.headers]);
+  sheet.getRange('A4:K4').setValues([EMAIL_MONITOR_CONFIG.headers]);
   sheet.getRange('A5').setFormula(
-    "=IF($B$1=\"\",\"\",IFERROR(FILTER('Email Log'!A2:I,'Email Log'!B2:B=$B$1),\"\"))"
+    "=IF($B$1=\"\",\"\",IFERROR(FILTER('Email Log'!A2:K,'Email Log'!C2:C=$B$1),\"\"))"
   );
-  sheet.getRange('K1').setValue('Sender List');
-  sheet.getRange('K2').setFormula(
-    "=IFERROR(SORT(UNIQUE(FILTER('Email Log'!B2:B,'Email Log'!B2:B<>\"\"))),\"\")"
+  sheet.getRange('M1').setValue('Sender List');
+  sheet.getRange('M2').setFormula(
+    "=IFERROR(SORT(UNIQUE(FILTER('Email Log'!C2:C,'Email Log'!C2:C<>\"\"))),\"\")"
   );
 
-  sheet.getRange('A1:I1')
+  sheet.getRange('A1:K1')
     .setFontWeight('bold')
     .setBackground('#fef7e0');
-  sheet.getRange('A2:I2')
+  sheet.getRange('A2:K2')
     .merge()
     .setWrap(true)
     .setBackground('#fff8d7');
-  sheet.getRange('A4:I4')
+  sheet.getRange('A4:K4')
     .setFontWeight('bold')
     .setBackground('#f9ab00')
     .setFontColor('#202124');
@@ -181,20 +243,21 @@ function seedSenderView_(sheet) {
   EMAIL_MONITOR_CONFIG.columnWidths.forEach(function(width, index) {
     sheet.setColumnWidth(index + 1, width);
   });
-  sheet.setColumnWidth(2, 320);
-  sheet.getRange('A:A').setNumberFormat('yyyy-mm-dd hh:mm');
-  sheet.getRange('F:F').setWrapStrategy(SpreadsheetApp.WrapStrategy.WRAP);
-  sheet.hideColumns(11);
+  sheet.getRange('A:A').setNumberFormat('@');
+  sheet.getRange('B:B').setNumberFormat('yyyy-mm-dd hh:mm');
+  sheet.getRange('G:G').setWrapStrategy(SpreadsheetApp.WrapStrategy.WRAP);
+  sheet.getRange('K:K').setWrapStrategy(SpreadsheetApp.WrapStrategy.WRAP);
+  sheet.hideColumns(13);
 
   const validation = SpreadsheetApp.newDataValidation()
-    .requireValueInRange(sheet.getRange('K2:K'), true)
+    .requireValueInRange(sheet.getRange('M2:M'), true)
     .setAllowInvalid(false)
     .build();
   sheet.getRange('B1').setDataValidation(validation);
 
   SpreadsheetApp.flush();
   const availableSenders = sheet
-    .getRange('K2:K')
+    .getRange('M2:M')
     .getDisplayValues()
     .map(function(row) {
       return String(row[0] || '').trim();
@@ -227,7 +290,7 @@ function refreshLogSheet_(sheet) {
 
   applyCheckboxColumn_(sheet);
   sheet.getRange(2, 1, lastRow - 1, lastColumn).sort({
-    column: 1,
+    column: EMAIL_LOG_COLUMN_INDEX.dateReceived,
     ascending: true,
   });
   sheet.getRange(1, 1, lastRow, lastColumn).createFilter();
@@ -239,7 +302,9 @@ function applyCheckboxColumn_(sheet) {
     return;
   }
 
-  sheet.getRange(2, 9, lastRow - 1, 1).insertCheckboxes();
+  sheet
+    .getRange(2, EMAIL_LOG_COLUMN_INDEX.withReply, lastRow - 1, 1)
+    .insertCheckboxes();
 }
 
 function appendRows_(sheet, rows) {
@@ -255,7 +320,9 @@ function getExistingMessageIds_(sheet) {
     return new Set();
   }
 
-  const values = sheet.getRange(2, 8, lastRow - 1, 1).getValues();
+  const values = sheet
+    .getRange(2, EMAIL_LOG_COLUMN_INDEX.messageId, lastRow - 1, 1)
+    .getValues();
   return new Set(
     values
       .map(function(row) {

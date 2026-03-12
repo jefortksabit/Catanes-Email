@@ -262,6 +262,7 @@
 
       select,
       input,
+      textarea,
       button {
         width: 100%;
         border: 1px solid rgba(18, 32, 51, 0.12);
@@ -271,13 +272,15 @@
       }
 
       select,
-      input {
+      input,
+      textarea {
         background: rgba(255, 255, 255, 0.88);
         color: var(--ink);
       }
 
       select:focus,
       input:focus,
+      textarea:focus,
       button:focus {
         outline: 3px solid rgba(199, 163, 67, 0.25);
         outline-offset: 2px;
@@ -412,7 +415,7 @@
       }
 
       .table-wrap {
-        overflow-x: hidden;
+        overflow-x: auto;
         overflow-y: auto;
         border-radius: 20px;
         border: 1px solid var(--line);
@@ -422,7 +425,7 @@
       table {
         width: 100%;
         border-collapse: collapse;
-        min-width: 0;
+        min-width: 1280px;
         table-layout: fixed;
         font-size: 8pt;
       }
@@ -517,6 +520,56 @@
 
       .row-button:hover {
         transform: translateY(-1px);
+      }
+
+      .cell-input,
+      .cell-textarea {
+        border-radius: 12px;
+        padding: 9px 10px;
+        background: #ffffff;
+      }
+
+      .cell-input {
+        min-width: 120px;
+      }
+
+      .cell-textarea {
+        min-height: 88px;
+        resize: vertical;
+        line-height: 1.45;
+      }
+
+      .editor-stack {
+        display: grid;
+        gap: 8px;
+      }
+
+      .row-actions {
+        display: grid;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: 8px;
+      }
+
+      .save-note {
+        font-size: var(--font-helper);
+        line-height: 1.35;
+        color: var(--ink-soft);
+      }
+
+      .save-note.dirty {
+        color: var(--accent-maroon);
+      }
+
+      .save-note.saving {
+        color: var(--accent);
+      }
+
+      .save-note.saved {
+        color: #137333;
+      }
+
+      .save-note.error {
+        color: #b3261e;
       }
 
       .empty-state {
@@ -671,7 +724,8 @@
 
         .cell-subtle,
         .row-button,
-        .status-badge {
+        .status-badge,
+        .save-note {
           font-size: 6.8pt;
         }
       }
@@ -765,7 +819,7 @@
               <input
                 id="queryFilter"
                 type="search"
-                placeholder="Search sender, subject, message, or IDs"
+                placeholder="Search sender, subject, message, reference no., status, or IDs"
               />
             </label>
 
@@ -819,27 +873,29 @@
             <table>
               <colgroup>
                 <col style="width: 11%" />
-                <col style="width: 13%" />
-                <col style="width: 15%" />
-                <col style="width: 18%" />
-                <col style="width: 24%" />
                 <col style="width: 10%" />
-                <col style="width: 9%" />
+                <col style="width: 12%" />
+                <col style="width: 14%" />
+                <col style="width: 16%" />
+                <col style="width: 18%" />
+                <col style="width: 8%" />
+                <col style="width: 11%" />
               </colgroup>
               <thead>
                 <tr>
+                  <th>Reference No.</th>
                   <th>Date Received</th>
                   <th>Sender</th>
                   <th>Recipients</th>
                   <th>Subject / IDs</th>
                   <th>Message</th>
                   <th>Reply</th>
-                  <th>Actions</th>
+                  <th>Status Update</th>
                 </tr>
               </thead>
               <tbody id="emailRows">
                 <tr>
-                  <td colspan="7" class="empty-state">Loading email records...</td>
+                  <td colspan="8" class="empty-state">Loading email records...</td>
                 </tr>
               </tbody>
             </table>
@@ -873,6 +929,8 @@
         byId("clearButton").addEventListener("click", clearFilters);
         byId("printAllButton").addEventListener("click", printAllTransactionsInView);
         byId("emailRows").addEventListener("click", handleRowActionClick);
+        byId("emailRows").addEventListener("input", handleRowEditorInput);
+        byId("emailRows").addEventListener("change", handleRowEditorChange);
 
         let searchTimer = null;
         byId("queryFilter").addEventListener("input", function() {
@@ -1018,7 +1076,7 @@
         updatePrintAllButtonState();
         if (!rows.length) {
           body.innerHTML =
-            '<tr><td colspan="7" class="empty-state">No emails match the current filters.</td></tr>';
+            '<tr><td colspan="8" class="empty-state">No emails match the current filters.</td></tr>';
           return;
         }
 
@@ -1033,7 +1091,17 @@
             }
 
             return (
-              "<tr>" +
+              '<tr data-row-index="' +
+              index +
+              '">' +
+              "<td>" +
+              '<div class="editor-stack">' +
+              '<input type="text" class="cell-input" data-field="referenceNumber" placeholder="Enter reference number" value="' +
+              escapeAttribute(row.referenceNumber || "") +
+              '">' +
+              '<div class="save-note saved" data-role="save-state">Saved in Google Sheet.</div>' +
+              "</div>" +
+              "</td>" +
               "<td>" +
               '<div class="cell-heading">' +
               escapeHtml(row.dateReceived) +
@@ -1070,10 +1138,16 @@
               (row.withReply ? "With reply" : "Pending") +
               "</span>" +
               "</td>" +
-              '<td class="action-cell">' +
-              '<button type="button" class="row-button soft-button" data-action="print-email" data-row-index="' +
-              index +
-              '">Print</button>' +
+              "<td>" +
+              '<div class="editor-stack">' +
+              '<textarea class="cell-textarea" rows="3" data-field="statusUpdate" placeholder="Enter status update">' +
+              escapeHtml(row.statusUpdate || "") +
+              "</textarea>" +
+              '<div class="row-actions">' +
+              '<button type="button" class="row-button soft-button" data-action="save-row">Save</button>' +
+              '<button type="button" class="row-button soft-button" data-action="print-email">Print</button>' +
+              "</div>" +
+              "</div>" +
               "</td>" +
               "</tr>"
             );
@@ -1087,13 +1161,129 @@
           return;
         }
 
-        if (actionButton.getAttribute("data-action") === "print-email") {
-          const rowIndex = parseInt(
-            actionButton.getAttribute("data-row-index"),
-            10
-          );
-          printEmailTransaction(currentRenderedRows[rowIndex]);
+        const rowElement = actionButton.closest("tr");
+        const row = getRenderedRowFromElement(rowElement);
+        if (!row) {
+          return;
         }
+
+        if (actionButton.getAttribute("data-action") === "print-email") {
+          printEmailTransaction(row);
+          return;
+        }
+
+        if (actionButton.getAttribute("data-action") === "save-row") {
+          saveRowDraft(rowElement);
+        }
+      }
+
+      function handleRowEditorInput(event) {
+        const field = event.target.getAttribute("data-field");
+        if (!field) {
+          return;
+        }
+
+        const rowElement = event.target.closest("tr");
+        setRowSaveState(rowElement, "Unsaved changes.", "dirty");
+      }
+
+      function handleRowEditorChange(event) {
+        const field = event.target.getAttribute("data-field");
+        if (!field) {
+          return;
+        }
+
+        saveRowDraft(event.target.closest("tr"));
+      }
+
+      function saveRowDraft(rowElement) {
+        const row = getRenderedRowFromElement(rowElement);
+        const referenceNumberInput = rowElement.querySelector(
+          '[data-field="referenceNumber"]'
+        );
+        const statusUpdateInput = rowElement.querySelector(
+          '[data-field="statusUpdate"]'
+        );
+
+        if (!row || !referenceNumberInput || !statusUpdateInput) {
+          return;
+        }
+
+        const referenceNumber = referenceNumberInput.value.trim();
+        const statusUpdate = statusUpdateInput.value.trim();
+
+        if (
+          row.referenceNumber === referenceNumber &&
+          row.statusUpdate === statusUpdate
+        ) {
+          setRowSaveState(rowElement, "Saved in Google Sheet.", "saved");
+          return;
+        }
+
+        setRowEditingEnabled(rowElement, false);
+        setRowSaveState(rowElement, "Saving to Google Sheet...", "saving");
+
+        google.script.run
+          .withSuccessHandler(function(updatedRow) {
+            row.referenceNumber = updatedRow.referenceNumber || "";
+            row.statusUpdate = updatedRow.statusUpdate || "";
+            referenceNumberInput.value = row.referenceNumber;
+            statusUpdateInput.value = row.statusUpdate;
+            setRowSaveState(rowElement, "Saved in Google Sheet.", "saved");
+            setRowEditingEnabled(rowElement, true);
+          })
+          .withFailureHandler(function(error) {
+            const message =
+              error && error.message
+                ? error.message
+                : "The row could not be updated in Google Sheet.";
+            setRowSaveState(rowElement, message, "error");
+            setRowEditingEnabled(rowElement, true);
+          })
+          .updateEmailRecordManualFields({
+            messageId: row.messageId,
+            referenceNumber: referenceNumber,
+            statusUpdate: statusUpdate,
+          });
+      }
+
+      function getRenderedRowFromElement(rowElement) {
+        if (!rowElement) {
+          return null;
+        }
+
+        const rowIndex = parseInt(rowElement.getAttribute("data-row-index"), 10);
+        if (isNaN(rowIndex)) {
+          return null;
+        }
+
+        return currentRenderedRows[rowIndex] || null;
+      }
+
+      function setRowEditingEnabled(rowElement, isEnabled) {
+        if (!rowElement) {
+          return;
+        }
+
+        rowElement
+          .querySelectorAll('[data-field], [data-action="save-row"]')
+          .forEach(function(element) {
+            element.disabled = !isEnabled;
+          });
+      }
+
+      function setRowSaveState(rowElement, message, state) {
+        if (!rowElement) {
+          return;
+        }
+
+        const note = rowElement.querySelector('[data-role="save-state"]');
+        if (!note) {
+          return;
+        }
+
+        note.textContent = message;
+        note.className = "save-note" + (state ? " " + state : "");
       }
 
       function printEmailTransaction(row) {
@@ -1174,6 +1364,7 @@
           '<p class="subtitle">Prepared from the Catanes Email Monitor web app.</p>' +
           '</section>' +
           '<section class="details">' +
+          buildPrintDetailCard("Reference Number", row.referenceNumber || "Not provided") +
           buildPrintDetailCard("Date Received", row.dateReceived) +
           buildPrintDetailCard("From", row.from || "(Unknown sender)") +
           buildPrintDetailCard("To", row.to || "No recipients listed.") +
@@ -1182,6 +1373,7 @@
           buildPrintDetailCard("Reply Status", replyLabel) +
           buildPrintDetailCard("Thread ID", row.threadId || "Not available") +
           buildPrintDetailCard("Message ID", row.messageId || "Not available") +
+          buildPrintDetailCard("Status Update", row.statusUpdate || "No status update.") +
           "</section>" +
           '<section><div class="label">Message</div><div class="message">' +
           messageHtml +
@@ -1275,6 +1467,7 @@
           "</h2>" +
           "</div>" +
           '<section class="details">' +
+          buildPrintDetailCard("Reference Number", row.referenceNumber || "Not provided") +
           buildPrintDetailCard("Date Received", row.dateReceived) +
           buildPrintDetailCard("From", row.from || "(Unknown sender)") +
           buildPrintDetailCard("To", row.to || "No recipients listed.") +
@@ -1282,6 +1475,7 @@
           buildPrintDetailCard("Reply Status", replyLabel) +
           buildPrintDetailCard("Thread ID", row.threadId || "Not available") +
           buildPrintDetailCard("Message ID", row.messageId || "Not available") +
+          buildPrintDetailCard("Status Update", row.statusUpdate || "No status update.") +
           "</section>" +
           '<section><div class="label">Message</div><div class="message">' +
           messageHtml +
@@ -1348,7 +1542,7 @@
             ? error.message
             : "The web app could not load data from the monitoring sheet.";
         byId("emailRows").innerHTML =
-          '<tr><td colspan="7" class="empty-state">' +
+          '<tr><td colspan="8" class="empty-state">' +
           escapeHtml(message) +
           "</td></tr>";
         byId("resultsLabel").textContent = "Unable to load email records.";

@@ -24,6 +24,18 @@ The `Email Log` sheet keeps only the essential monitoring columns:
 - `Dashboard`: summary metrics and sender/subject counts.
 - `Sender View`: a dropdown-driven tab that lets you choose a sender and see only emails from that sender.
 
+## Apps Script files
+
+The project is split into smaller Apps Script files for easier maintenance:
+
+- [Config.gs](C:/CHED-OPSD/Catanes-Email/apps-script/Config.gs): shared configuration constants.
+- [SpreadsheetMenu.gs](C:/CHED-OPSD/Catanes-Email/apps-script/SpreadsheetMenu.gs): menu items and top-level actions.
+- [SheetViews.gs](C:/CHED-OPSD/Catanes-Email/apps-script/SheetViews.gs): sheet creation, formatting, dashboard, and sender view setup.
+- [MailboxSync.gs](C:/CHED-OPSD/Catanes-Email/apps-script/MailboxSync.gs): Gmail sync pipeline and message cleanup.
+- [WebApp.gs](C:/CHED-OPSD/Catanes-Email/apps-script/WebApp.gs): web app entry point.
+- [WebData.gs](C:/CHED-OPSD/Catanes-Email/apps-script/WebData.gs): web app data loading and filtering.
+- [Dashboard.html](C:/CHED-OPSD/Catanes-Email/apps-script/Dashboard.html): web UI.
+
 ## How the sheet works
 
 - Only inbound emails are logged.
@@ -36,11 +48,28 @@ The `Email Log` sheet keeps only the essential monitoring columns:
 1. Sign in to Google as `jcatanes@ched.gov.ph`.
 2. Open the production spreadsheet.
 3. Go to `Extensions` > `Apps Script`.
-4. Replace the default script with the contents of [EmailMonitor.gs](C:/CHED-OPSD/Catanes-Email/apps-script/EmailMonitor.gs).
+4. Add the `.gs` files from the [apps-script](C:/CHED-OPSD/Catanes-Email/apps-script) folder into the Apps Script project.
 5. Open `Project Settings`, enable `Show "appsscript.json" manifest file in editor`, then replace the manifest with [appsscript.json](C:/CHED-OPSD/Catanes-Email/apps-script/appsscript.json).
 6. Save the project.
 7. Run `bootstrapEmailMonitor` once from the Apps Script editor and approve the requested Gmail, Sheets, and trigger permissions.
 8. Reload the spreadsheet and run `Sync now` when needed.
+
+## Web page
+
+The same Apps Script project also includes a web app UI for browsing the monitored emails outside the spreadsheet.
+
+1. Make sure [WebApp.gs](C:/CHED-OPSD/Catanes-Email/apps-script/WebApp.gs), [WebData.gs](C:/CHED-OPSD/Catanes-Email/apps-script/WebData.gs), and [Dashboard.html](C:/CHED-OPSD/Catanes-Email/apps-script/Dashboard.html) are added to the project.
+2. In Apps Script, go to `Deploy` > `New deployment`.
+3. Choose `Web app`.
+4. Set `Execute as` to the account that owns the mailbox and spreadsheet.
+5. Set access according to your organization's policy.
+6. Deploy and open the generated web app URL.
+
+The web app includes:
+
+- summary cards for total emails, senders, replied threads, pending replies, and today's volume
+- a sender dropdown, reply-status filter, search box, and row limit selector
+- a live table of email records loaded directly from `Email Log`
 
 ## Menu actions
 

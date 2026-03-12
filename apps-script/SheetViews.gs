@@ -228,7 +228,7 @@ function refreshLogSheet_(sheet) {
   applyCheckboxColumn_(sheet);
   sheet.getRange(2, 1, lastRow - 1, lastColumn).sort({
     column: 1,
-    ascending: false,
+    ascending: true,
   });
   sheet.getRange(1, 1, lastRow, lastColumn).createFilter();
 }

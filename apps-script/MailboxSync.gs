@@ -67,7 +67,7 @@ function syncMailboxInternal_(options) {
 
     if (rows.length) {
       rows.sort(function(left, right) {
-        return right[0].getTime() - left[0].getTime();
+        return left[0].getTime() - right[0].getTime();
       });
 
       appendRows_(logSheet, rows);

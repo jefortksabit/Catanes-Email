@@ -38,7 +38,7 @@ function getEmailLogRecordsForWeb_() {
       return record.dateReceived && !isNaN(record.dateReceived.getTime());
     })
     .sort(function(left, right) {
-      return right.dateReceived.getTime() - left.dateReceived.getTime();
+      return left.dateReceived.getTime() - right.dateReceived.getTime();
     });
 }
 

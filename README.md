@@ -23,8 +23,7 @@ The `Email Log` sheet keeps only the essential monitoring columns:
 
 - Only inbound emails are logged.
 - `With Reply` is a checkbox that turns `TRUE` when the same thread contains a later reply sent from `jcatanes@ched.gov.ph`.
-- `Message` is generated through Google Gemini when a Gemini API key is configured.
-- If no Gemini API key is configured yet, `Message` falls back to a shortened plain-text extract so syncing can continue.
+- `Message` is generated from the cleaned plain-text body of the email after removing common quoted-thread markers and trimming the result for the sheet.
 
 ## Setup
 
@@ -34,10 +33,8 @@ The `Email Log` sheet keeps only the essential monitoring columns:
 4. Replace the default script with the contents of [EmailMonitor.gs](C:/CHED-OPSD/Catanes-Email/apps-script/EmailMonitor.gs).
 5. Open `Project Settings`, enable `Show "appsscript.json" manifest file in editor`, then replace the manifest with [appsscript.json](C:/CHED-OPSD/Catanes-Email/apps-script/appsscript.json).
 6. Save the project.
-7. Create a Gemini API key in [Google AI Studio](https://aistudio.google.com/app/apikey).
-8. Run `bootstrapEmailMonitor` once from the Apps Script editor and approve the requested Gmail, Sheets, trigger, and external request permissions.
-9. Reload the spreadsheet, open the `Email Monitor` menu, and use `Set Gemini API key`.
-10. Run `Sync now`.
+7. Run `bootstrapEmailMonitor` once from the Apps Script editor and approve the requested Gmail, Sheets, and trigger permissions.
+8. Reload the spreadsheet and run `Sync now` when needed.
 
 ## Menu actions
 
@@ -45,8 +42,6 @@ The `Email Log` sheet keeps only the essential monitoring columns:
 - `Setup sheets only`: rebuilds the `Email Log` and refreshes the `Dashboard`.
 - `Sync now`: imports newly found inbound emails.
 - `Backfill last 180 days`: imports older inbound email history.
-- `Set Gemini API key`: stores the Gemini API key in Apps Script script properties.
-- `Clear Gemini API key`: removes the stored Gemini API key.
 - `Install hourly trigger`: recreates the time-driven sync trigger.
 - `Reset sync state`: clears the sync checkpoint so the next run rescans the recent window.
 
@@ -54,4 +49,4 @@ The `Email Log` sheet keeps only the essential monitoring columns:
 
 - The script must be authorized while signed in as `jcatanes@ched.gov.ph`; `GmailApp` reads the mailbox of the account that authorizes the script.
 - Existing log sheets with the older column layout are preserved by renaming them to a timestamped backup sheet before the simplified `Email Log` is created.
-- The email body text used for the `Message` summary is sent to the Gemini API. Review that against your organization's data handling rules before enabling the API key.
+- This version does not depend on AI Studio or any external AI service.

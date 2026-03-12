@@ -8,14 +8,9 @@ const EMAIL_MONITOR_CONFIG = Object.freeze({
   overlapDays: 2,
   batchSize: 100,
   timeZone: 'Asia/Manila',
-  maxBodyCharsForGemini: 12000,
   maxFallbackChars: 280,
-  geminiModel: 'gemini-2.5-flash',
-  geminiApiEndpoint:
-    'https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent',
   scriptProperties: {
     lastSyncAt: 'EMAIL_MONITOR_LAST_SYNC_AT',
-    geminiApiKey: 'GEMINI_API_KEY',
   },
   headers: [
     'Date Received',
@@ -39,9 +34,6 @@ function onOpen() {
     .addItem('Sync now', 'syncMailbox')
     .addItem('Backfill last 180 days', 'backfillLast180Days')
     .addSeparator()
-    .addItem('Set Gemini API key', 'setGeminiApiKey')
-    .addItem('Clear Gemini API key', 'clearGeminiApiKey')
-    .addSeparator()
     .addItem('Install hourly trigger', 'installHourlySyncTrigger')
     .addItem('Reset sync state', 'resetSyncState')
     .addToUi();
@@ -63,7 +55,7 @@ function setupEmailMonitor() {
   seedDashboard_(dashboardSheet);
 
   spreadsheet.toast(
-    'Email monitor sheets are ready. Set the Gemini API key, then run Sync now.',
+    'Email monitor sheets are ready. Run Sync now to log inbound emails.',
     'Email Monitor',
     8
   );
@@ -111,48 +103,6 @@ function resetSyncState() {
   );
 }
 
-function setGeminiApiKey() {
-  const ui = SpreadsheetApp.getUi();
-  const response = ui.prompt(
-    'Set Gemini API Key',
-    'Paste the Gemini API key from Google AI Studio. It will be stored in Apps Script script properties.',
-    ui.ButtonSet.OK_CANCEL
-  );
-
-  if (response.getSelectedButton() !== ui.Button.OK) {
-    return;
-  }
-
-  const apiKey = String(response.getResponseText() || '').trim();
-  if (!apiKey) {
-    ui.alert('No API key was provided.');
-    return;
-  }
-
-  PropertiesService.getScriptProperties().setProperty(
-    EMAIL_MONITOR_CONFIG.scriptProperties.geminiApiKey,
-    apiKey
-  );
-
-  getTargetSpreadsheet_().toast(
-    'Gemini API key saved.',
-    'Email Monitor',
-    6
-  );
-}
-
-function clearGeminiApiKey() {
-  PropertiesService.getScriptProperties().deleteProperty(
-    EMAIL_MONITOR_CONFIG.scriptProperties.geminiApiKey
-  );
-
-  getTargetSpreadsheet_().toast(
-    'Gemini API key cleared. Message summaries will use the fallback text.',
-    'Email Monitor',
-    8
-  );
-}
-
 function syncMailboxInternal_(options) {
   const settings = options || {};
   const lock = LockService.getScriptLock();
@@ -163,7 +113,6 @@ function syncMailboxInternal_(options) {
     const logSheet = ensureLogSheet_(spreadsheet);
     const dashboardSheet = ensureDashboardSheet_(spreadsheet);
     const existingMessageIds = getExistingMessageIds_(logSheet);
-    const geminiApiKey = getGeminiApiKey_();
     const query = buildQuery_(settings);
     const rows = [];
     let start = 0;
@@ -203,7 +152,7 @@ function syncMailboxInternal_(options) {
             message.getTo(),
             message.getCc(),
             message.getSubject(),
-            buildProcessedMessage_(message, geminiApiKey),
+            buildProcessedMessage_(message),
             thread.getId(),
             messageId,
             hasReplyAfterMessage_(message.getDate(), replyDates),
@@ -237,7 +186,7 @@ function syncMailboxInternal_(options) {
 
     SpreadsheetApp.flush();
     spreadsheet.toast(
-      buildSyncToastMessage_(rows.length, Boolean(geminiApiKey)),
+      'Sync complete. ' + rows.length + ' inbound email(s) logged.',
       'Email Monitor',
       8
     );
@@ -334,25 +283,20 @@ function seedDashboard_(sheet) {
   sheet.clear();
   sheet.setTabColor('#188038');
 
-  const geminiStatus = getGeminiApiKey_()
-    ? 'Configured (' + EMAIL_MONITOR_CONFIG.geminiModel + ')'
-    : 'Not configured';
-
-  sheet.getRange('A1:B3').setValues([
+  sheet.getRange('A1:B2').setValues([
     ['Mailbox', EMAIL_MONITOR_CONFIG.monitoredMailbox],
     ['Spreadsheet ID', EMAIL_MONITOR_CONFIG.spreadsheetId],
-    ['Gemini Summary', geminiStatus],
   ]);
 
-  sheet.getRange('A5:B5').setValues([['Metric', 'Value']]);
-  sheet.getRange('A6:A10').setValues([
+  sheet.getRange('A4:B4').setValues([['Metric', 'Value']]);
+  sheet.getRange('A5:A9').setValues([
     ['Total Logged Emails'],
     ['With Reply'],
     ['Pending Reply'],
     ['Received Today'],
     ['Received This Week'],
   ]);
-  sheet.getRange('B6:B10').setFormulas([
+  sheet.getRange('B5:B9').setFormulas([
     ["=MAX(COUNTA('Email Log'!H:H)-1,0)"],
     ["=COUNTIF('Email Log'!I:I,TRUE)"],
     ["=COUNTIF('Email Log'!I:I,FALSE)"],
@@ -360,26 +304,26 @@ function seedDashboard_(sheet) {
     ["=COUNTIFS('Email Log'!A:A,\">=\"&(TODAY()-WEEKDAY(TODAY(),2)+1),'Email Log'!A:A,\"<\"&(TODAY()-WEEKDAY(TODAY(),2)+8))"],
   ]);
 
-  sheet.getRange('D5:E5').setValues([['Top Senders', 'Emails']]);
-  sheet.getRange('D6').setFormula(
+  sheet.getRange('D4:E4').setValues([['Top Senders', 'Emails']]);
+  sheet.getRange('D5').setFormula(
     "=QUERY('Email Log'!A2:I,\"select B, count(B) where B is not null group by B order by count(B) desc limit 10 label B 'From', count(B) 'Emails'\",0)"
   );
 
-  sheet.getRange('G5:H5').setValues([['Pending Reply By Sender', 'Emails']]);
-  sheet.getRange('G6').setFormula(
+  sheet.getRange('G4:H4').setValues([['Pending Reply By Sender', 'Emails']]);
+  sheet.getRange('G5').setFormula(
     "=QUERY('Email Log'!A2:I,\"select B, count(B) where B is not null and I = FALSE group by B order by count(B) desc limit 10 label B 'From', count(B) 'Emails'\",0)"
   );
 
-  sheet.getRange('J5:K5').setValues([['Common Subjects', 'Emails']]);
-  sheet.getRange('J6').setFormula(
+  sheet.getRange('J4:K4').setValues([['Common Subjects', 'Emails']]);
+  sheet.getRange('J5').setFormula(
     "=QUERY('Email Log'!A2:I,\"select E, count(E) where E is not null group by E order by count(E) desc limit 10 label E 'Subject', count(E) 'Emails'\",0)"
   );
 
-  sheet.getRange('A1:K5')
+  sheet.getRange('A1:K4')
     .setFontWeight('bold')
     .setBackground('#e6f4ea');
   sheet.getRange('A1:K20').setVerticalAlignment('top');
-  sheet.setFrozenRows(5);
+  sheet.setFrozenRows(4);
   sheet.setColumnWidth(1, 190);
   sheet.setColumnWidth(2, 220);
   sheet.setColumnWidth(4, 260);
@@ -513,32 +457,10 @@ function messageAddressContainsMailbox_(value) {
     .indexOf(EMAIL_MONITOR_CONFIG.monitoredMailbox.toLowerCase()) !== -1;
 }
 
-function buildProcessedMessage_(message, geminiApiKey) {
+function buildProcessedMessage_(message) {
   const cleanedBody = cleanEmailBody_(message.getPlainBody());
-  const fallbackText = buildFallbackMessage_(cleanedBody, message.getSubject());
-
-  if (!geminiApiKey) {
-    return fallbackText;
-  }
-
-  const prompt = [
-    'Summarize this email for a monitoring spreadsheet.',
-    'Return plain text only.',
-    'Keep it to at most 80 words.',
-    'Include the main request, key facts, dates, names, and the next expected action if any.',
-    'Ignore greetings, signatures, disclaimers, and quoted thread history.',
-    '',
-    'From: ' + String(message.getFrom() || ''),
-    'To: ' + String(message.getTo() || ''),
-    'Cc: ' + String(message.getCc() || ''),
-    'Subject: ' + String(message.getSubject() || ''),
-    '',
-    'Email body:',
-    truncate_(cleanedBody || '(No message body)', EMAIL_MONITOR_CONFIG.maxBodyCharsForGemini),
-  ].join('\n');
-
-  const summary = generateGeminiSummary_(prompt, geminiApiKey);
-  return summary || fallbackText;
+  const summarySource = cleanedBody || String(message.getSubject() || '').trim();
+  return buildFallbackMessage_(summarySource);
 }
 
 function cleanEmailBody_(plainBody) {
@@ -561,65 +483,16 @@ function cleanEmailBody_(plainBody) {
   return cleaned.replace(/\n{3,}/g, '\n\n').replace(/[ \t]+/g, ' ').trim();
 }
 
-function buildFallbackMessage_(cleanedBody, subject) {
-  const sourceText = String(cleanedBody || '').trim() || String(subject || '').trim();
+function buildFallbackMessage_(text) {
+  const sourceText = String(text || '').trim();
   if (!sourceText) {
     return 'No message content.';
   }
 
-  return truncate_(sourceText.replace(/\s+/g, ' '), EMAIL_MONITOR_CONFIG.maxFallbackChars);
-}
-
-function generateGeminiSummary_(prompt, apiKey) {
-  try {
-    const payload = {
-      contents: [
-        {
-          role: 'user',
-          parts: [{ text: prompt }],
-        },
-      ],
-      generationConfig: {
-        temperature: 0.2,
-        maxOutputTokens: 160,
-        responseMimeType: 'text/plain',
-      },
-    };
-
-    const response = UrlFetchApp.fetch(EMAIL_MONITOR_CONFIG.geminiApiEndpoint, {
-      method: 'post',
-      contentType: 'application/json',
-      headers: {
-        'x-goog-api-key': apiKey,
-      },
-      payload: JSON.stringify(payload),
-      muteHttpExceptions: true,
-    });
-
-    if (response.getResponseCode() !== 200) {
-      console.warn(
-        'Gemini summary failed with status ' + response.getResponseCode()
-      );
-      return '';
-    }
-
-    const data = JSON.parse(response.getContentText());
-    const candidates = data.candidates || [];
-    if (!candidates.length) {
-      return '';
-    }
-
-    const parts = (((candidates[0] || {}).content || {}).parts || []).map(
-      function(part) {
-        return part.text || '';
-      }
-    );
-
-    return truncate_(parts.join(' ').replace(/\s+/g, ' ').trim(), 400);
-  } catch (error) {
-    console.warn('Gemini summary error: ' + error);
-    return '';
-  }
+  return truncate_(
+    sourceText.replace(/\s+/g, ' '),
+    EMAIL_MONITOR_CONFIG.maxFallbackChars
+  );
 }
 
 function truncate_(value, maxChars) {
@@ -629,24 +502,4 @@ function truncate_(value, maxChars) {
   }
 
   return text.slice(0, maxChars - 3).trim() + '...';
-}
-
-function getGeminiApiKey_() {
-  return String(
-    PropertiesService.getScriptProperties().getProperty(
-      EMAIL_MONITOR_CONFIG.scriptProperties.geminiApiKey
-    ) || ''
-  ).trim();
-}
-
-function buildSyncToastMessage_(newRows, geminiEnabled) {
-  if (geminiEnabled) {
-    return 'Sync complete. ' + newRows + ' inbound email(s) logged.';
-  }
-
-  return (
-    'Sync complete. ' +
-    newRows +
-    ' inbound email(s) logged. Gemini key not set, so Message uses fallback text.'
-  );
 }

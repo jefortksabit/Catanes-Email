@@ -3,12 +3,6 @@
   <head>
     <base target="_top" />
     <meta charset="utf-8" />
-    <link rel="preconnect" href="https://fonts.googleapis.com" />
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-    <link
-      href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,600;9..144,700&family=Space+Grotesk:wght@400;500;700&display=swap"
-      rel="stylesheet"
-    />
     <style>
       :root {
         --paper: #ffffff;
@@ -22,6 +16,12 @@
         --line: rgba(31, 74, 168, 0.14);
         --shadow: 0 24px 56px rgba(21, 35, 61, 0.08);
         --radius: 24px;
+        --font-sans: "Frutiger", "Frutiger LT Std", "Frutiger Linotype", "Univers", "Segoe UI", Arial, sans-serif;
+        --font-display: 12pt;
+        --font-title: 11pt;
+        --font-body: 9pt;
+        --font-label: 8pt;
+        --font-helper: 7.5pt;
       }
 
       * {
@@ -31,8 +31,8 @@
       body {
         margin: 0;
         min-height: 100vh;
-        font-family: "Space Grotesk", "Segoe UI", sans-serif;
-        font-size: 15px;
+        font-family: var(--font-sans);
+        font-size: var(--font-body);
         color: var(--ink);
         background:
           radial-gradient(circle at top left, rgba(31, 74, 168, 0.1), transparent 34%),
@@ -96,7 +96,7 @@
 
       .eyebrow {
         margin: 0 0 10px;
-        font-size: 12px;
+        font-size: var(--font-label);
         letter-spacing: 0.18em;
         text-transform: uppercase;
         color: var(--accent-maroon);
@@ -106,21 +106,32 @@
       h2,
       h3 {
         margin: 0;
-        font-family: "Fraunces", Georgia, serif;
+        font-family: var(--font-sans);
+        font-weight: 700;
       }
 
       h1 {
-        font-size: clamp(1.8rem, 3.2vw, 2.8rem);
-        line-height: 0.94;
-        max-width: 10ch;
+        font-size: var(--font-display);
+        line-height: 1.1;
+        max-width: 18ch;
+      }
+
+      h2 {
+        font-size: var(--font-title);
+        line-height: 1.2;
+      }
+
+      h3 {
+        font-size: 10pt;
+        line-height: 1.2;
       }
 
       .hero-copy {
         max-width: 58ch;
         margin: 16px 0 0;
         color: var(--ink-soft);
-        font-size: 0.92rem;
-        line-height: 1.55;
+        font-size: var(--font-body);
+        line-height: 1.45;
       }
 
       .meta-stack {
@@ -139,15 +150,16 @@
       }
 
       .meta-label {
-        font-size: 11px;
+        font-size: var(--font-label);
         letter-spacing: 0.14em;
         text-transform: uppercase;
         color: var(--ink-soft);
       }
 
       .meta-value {
-        font-size: 0.9rem;
+        font-size: var(--font-body);
         word-break: break-word;
+        line-height: 1.35;
       }
 
       .stats {
@@ -189,7 +201,7 @@
       }
 
       .stat-label {
-        font-size: 11px;
+        font-size: var(--font-label);
         letter-spacing: 0.12em;
         text-transform: uppercase;
         color: var(--ink-soft);
@@ -197,14 +209,16 @@
 
       .stat-value {
         margin-top: 10px;
-        font-size: clamp(1.45rem, 2.4vw, 1.95rem);
+        font-size: 11.5pt;
         font-weight: 700;
+        line-height: 1.1;
       }
 
       .stat-note {
         margin-top: 8px;
         color: var(--ink-soft);
-        font-size: 0.8rem;
+        font-size: var(--font-helper);
+        line-height: 1.35;
       }
 
       .content-grid {
@@ -228,7 +242,7 @@
       .panel-title p {
         margin: 0;
         color: var(--ink-soft);
-        font-size: 0.88rem;
+        font-size: var(--font-body);
       }
 
       .filter-grid {
@@ -239,7 +253,7 @@
 
       label span {
         display: block;
-        font-size: 11px;
+        font-size: var(--font-label);
         letter-spacing: 0.12em;
         text-transform: uppercase;
         color: var(--ink-soft);
@@ -316,7 +330,7 @@
 
       .sender-name {
         margin-bottom: 6px;
-        font-size: 0.86rem;
+        font-size: var(--font-body);
         word-break: break-word;
       }
 
@@ -336,7 +350,7 @@
       }
 
       .sender-count {
-        font-size: 0.82rem;
+        font-size: var(--font-helper);
         color: var(--ink-soft);
       }
 
@@ -355,6 +369,7 @@
       .table-toolbar p {
         margin: 8px 0 0;
         color: var(--ink-soft);
+        font-size: var(--font-body);
       }
 
       .pill-row {
@@ -372,7 +387,7 @@
         border-radius: 999px;
         background: #ffffff;
         border: 1px solid rgba(31, 74, 168, 0.12);
-        font-size: 0.76rem;
+        font-size: var(--font-helper);
       }
 
       .table-wrap {
@@ -388,7 +403,7 @@
         border-collapse: collapse;
         min-width: 0;
         table-layout: fixed;
-        font-size: 0.84rem;
+        font-size: 8pt;
       }
 
       thead th {
@@ -399,7 +414,7 @@
         color: var(--ink);
         text-align: left;
         padding: 11px 10px;
-        font-size: 10px;
+        font-size: var(--font-label);
         letter-spacing: 0.12em;
         text-transform: uppercase;
         line-height: 1.3;
@@ -420,7 +435,7 @@
 
       .cell-heading {
         font-weight: 700;
-        font-size: 0.86rem;
+        font-size: 8.5pt;
         line-height: 1.35;
         overflow-wrap: anywhere;
       }
@@ -433,7 +448,7 @@
 
       .cell-subtle {
         margin-top: 4px;
-        font-size: 0.76rem;
+        font-size: var(--font-helper);
         line-height: 1.4;
         overflow-wrap: anywhere;
       }
@@ -452,7 +467,7 @@
         padding: 8px 8px;
         border-radius: 999px;
         font-weight: 700;
-        font-size: 0.73rem;
+        font-size: var(--font-helper);
         text-align: center;
       }
 
@@ -476,7 +491,7 @@
         padding: 8px 8px;
         border-radius: 12px;
         box-shadow: none;
-        font-size: 0.76rem;
+        font-size: var(--font-helper);
       }
 
       .row-button:hover {
@@ -568,7 +583,7 @@
         }
 
         table {
-          font-size: 0.8rem;
+          font-size: 7.5pt;
         }
 
         thead th,
@@ -609,11 +624,11 @@
         }
 
         table {
-          font-size: 0.76rem;
+          font-size: 7pt;
         }
 
         thead th {
-          font-size: 9px;
+          font-size: 7pt;
         }
 
         tbody td {
@@ -621,13 +636,13 @@
         }
 
         .cell-heading {
-          font-size: 0.8rem;
+          font-size: 7.5pt;
         }
 
         .cell-subtle,
         .row-button,
         .status-badge {
-          font-size: 0.7rem;
+          font-size: 6.8pt;
         }
       }
     </style>
@@ -1073,17 +1088,17 @@
           '<style>' +
           ':root{color-scheme:light;}' +
           '*{box-sizing:border-box;}' +
-          'body{margin:0;padding:32px;font-family:"Segoe UI",Arial,sans-serif;color:#15233d;background:#ffffff;}' +
+          'body{margin:0;padding:32px;font-family:"Frutiger","Frutiger LT Std","Frutiger Linotype","Univers","Segoe UI",Arial,sans-serif;font-size:9pt;color:#15233d;background:#ffffff;}' +
           '.print-shell{max-width:920px;margin:0 auto;}' +
           '.header{margin-bottom:24px;padding-bottom:16px;border-bottom:2px solid #c7a343;}' +
-          '.eyebrow{margin:0 0 8px;font-size:12px;letter-spacing:.16em;text-transform:uppercase;color:#7a2038;}' +
-          'h1{margin:0;font-size:28px;line-height:1.1;font-family:Georgia,serif;}' +
-          '.subtitle{margin:10px 0 0;color:#52627d;}' +
+          '.eyebrow{margin:0 0 8px;font-size:8pt;letter-spacing:.16em;text-transform:uppercase;color:#7a2038;}' +
+          'h1{margin:0;font-size:12pt;line-height:1.15;font-family:"Frutiger","Frutiger LT Std","Frutiger Linotype","Univers","Segoe UI",Arial,sans-serif;font-weight:700;}' +
+          '.subtitle{margin:10px 0 0;color:#52627d;font-size:9pt;}' +
           '.details{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:14px;margin-bottom:24px;}' +
           '.detail{padding:14px 16px;border:1px solid rgba(31,74,168,.16);border-radius:12px;background:#f7f9ff;}' +
-          '.label{display:block;margin-bottom:6px;font-size:11px;letter-spacing:.12em;text-transform:uppercase;color:#7a2038;}' +
-          '.value{white-space:pre-wrap;word-break:break-word;line-height:1.45;}' +
-          '.message{padding:18px;border:1px solid rgba(31,74,168,.16);border-radius:14px;background:#ffffff;line-height:1.7;white-space:pre-wrap;word-break:break-word;}' +
+          '.label{display:block;margin-bottom:6px;font-size:8pt;letter-spacing:.12em;text-transform:uppercase;color:#7a2038;}' +
+          '.value{font-size:9pt;white-space:pre-wrap;word-break:break-word;line-height:1.4;}' +
+          '.message{padding:18px;border:1px solid rgba(31,74,168,.16);border-radius:14px;background:#ffffff;font-size:9pt;line-height:1.6;white-space:pre-wrap;word-break:break-word;}' +
           '@media print{body{padding:0;}.print-shell{max-width:none;}button{display:none;}}' +
           '@media (max-width:700px){body{padding:18px;}.details{grid-template-columns:1fr;}}' +
           '</style></head><body>' +

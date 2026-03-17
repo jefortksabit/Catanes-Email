@@ -666,7 +666,7 @@
 
       .row-actions {
         display: grid;
-        grid-template-columns: repeat(2, minmax(0, 1fr));
+        grid-template-columns: repeat(3, minmax(0, 1fr));
         gap: 8px;
       }
 
@@ -853,6 +853,10 @@
         .save-note {
           font-size: 6.8pt;
         }
+
+        .row-actions {
+          grid-template-columns: 1fr;
+        }
       }
     </style>
   </head>
@@ -1005,15 +1009,15 @@
           <div class="table-wrap">
             <table>
               <colgroup>
-                <col style="width: 10%" />
-                <col style="width: 9%" />
+              <col style="width: 10%" />
+                <col style="width: 8%" />
                 <col style="width: 11%" />
-                <col style="width: 12%" />
+                <col style="width: 11%" />
+                <col style="width: 13%" />
                 <col style="width: 14%" />
-                <col style="width: 16%" />
-                <col style="width: 12%" />
-                <col style="width: 7%" />
-                <col style="width: 9%" />
+                <col style="width: 10%" />
+                <col style="width: 8%" />
+                <col style="width: 15%" />
               </colgroup>
               <thead>
                 <tr>
@@ -1068,6 +1072,7 @@
         byId("refreshButton").addEventListener("click", loadBootstrapData);
         byId("clearButton").addEventListener("click", clearFilters);
         byId("printAllButton").addEventListener("click", printAllTransactionsInView);
+        byId("emailRows").addEventListener("pointerdown", rememberPendingRowAction);
         byId("emailRows").addEventListener("click", handleRowActionClick);
         byId("emailRows").addEventListener("input", handleRowEditorInput);
         byId("emailRows").addEventListener("change", handleRowEditorChange);
@@ -1127,6 +1132,11 @@
             control.removeAttribute("open");
           }
         });
+        document
+          .querySelectorAll("tr[data-pending-action]")
+          .forEach(function(rowElement) {
+            rowElement.removeAttribute("data-pending-action");
+          });
       }
 
       function applyFilters() {
@@ -1139,6 +1149,23 @@
           })
           .withFailureHandler(handleFailure)
           .getFilteredEmailRecords(readFilters());
+      }
+
+      function rememberPendingRowAction(event) {
+        const actionButton = event.target.closest("[data-action]");
+        if (!actionButton) {
+          return;
+        }
+
+        const rowElement = actionButton.closest("tr");
+        if (!rowElement) {
+          return;
+        }
+
+        rowElement.setAttribute(
+          "data-pending-action",
+          actionButton.getAttribute("data-action") || ""
+        );
       }
 
       function renderReferenceData(payload) {
@@ -1378,7 +1405,8 @@
               "</textarea>" +
               '<div class="row-actions">' +
               '<button type="button" class="row-button soft-button" data-action="save-row">Save</button>' +
-              '<button type="button" class="row-button soft-button" data-action="print-email">Print</button>' +
+              '<button type="button" class="row-button soft-button" data-action="print-email">Print Email</button>' +
+              '<button type="button" class="row-button soft-button" data-action="print-routing-slip">Routing Slip</button>' +
               "</div>" +
               "</div>" +
               "</td>" +
@@ -1397,17 +1425,24 @@
         }
 
         const rowElement = actionButton.closest("tr");
-        const row = getRenderedRowFromElement(rowElement);
-        if (!row) {
+        if (!rowElement) {
           return;
         }
 
-        if (actionButton.getAttribute("data-action") === "print-email") {
-          printEmailTransaction(row);
+        const action = actionButton.getAttribute("data-action");
+        rowElement.removeAttribute("data-pending-action");
+
+        if (action === "print-email") {
+          prepareTransactionPrint(rowElement, "email");
           return;
         }
 
-        if (actionButton.getAttribute("data-action") === "save-row") {
+        if (action === "print-routing-slip") {
+          prepareTransactionPrint(rowElement, "routing-slip");
+          return;
+        }
+
+        if (action === "save-row") {
           saveRowDraft(rowElement);
         }
       }
@@ -1432,9 +1467,21 @@
 
         const rowElement = event.target.closest("tr");
         const multiSelectControl = event.target.closest(".multi-select");
+        const pendingAction = rowElement
+          ? rowElement.getAttribute("data-pending-action")
+          : "";
 
         syncMultiSelectLabel(multiSelectControl);
         syncPersonnelSummaryNote(rowElement);
+
+        if (
+          pendingAction === "save-row" ||
+          pendingAction === "print-email" ||
+          pendingAction === "print-routing-slip"
+        ) {
+          setRowSaveState(rowElement, "Unsaved changes.", "dirty");
+          return;
+        }
 
         if (
           field === "personnelAssignments" &&
@@ -1449,8 +1496,12 @@
         saveRowDraft(rowElement);
       }
 
-      function saveRowDraft(rowElement) {
+      function readRowDraft(rowElement) {
         const row = getRenderedRowFromElement(rowElement);
+        if (!rowElement || !row) {
+          return null;
+        }
+
         const referenceNumberInput = rowElement.querySelector(
           '[data-field="referenceNumber"]'
         );
@@ -1461,34 +1512,148 @@
         const statusUpdateInput = rowElement.querySelector(
           '[data-field="statusUpdate"]'
         );
-        const personnelAssignments = getSelectedMultiSelectValues(
-          rowElement,
-          "personnelAssignments"
-        );
 
         if (
-          !row ||
           !referenceNumberInput ||
           !personnelControl ||
           !statusInput ||
           !statusUpdateInput
         ) {
+          return null;
+        }
+
+        return {
+          row: row,
+          referenceNumberInput: referenceNumberInput,
+          personnelControl: personnelControl,
+          statusInput: statusInput,
+          statusUpdateInput: statusUpdateInput,
+          referenceNumber: referenceNumberInput.value.trim(),
+          personnelAssignments: getSelectedMultiSelectValues(
+            rowElement,
+            "personnelAssignments"
+          ),
+          status: statusInput.value,
+          statusUpdate: statusUpdateInput.value.trim(),
+        };
+      }
+
+      function isRowDraftDirty(draft) {
+        if (!draft || !draft.row) {
+          return false;
+        }
+
+        return (
+          draft.row.referenceNumber !== draft.referenceNumber ||
+          !areSelectionListsEqual(
+            draft.row.personnelAssignments || [],
+            draft.personnelAssignments
+          ) ||
+          draft.row.status !== draft.status ||
+          draft.row.statusUpdate !== draft.statusUpdate
+        );
+      }
+
+      function buildPrintableRowData(row, overrides) {
+        const values = overrides || {};
+        const hasOwn = Object.prototype.hasOwnProperty;
+        const personnelAssignments = hasOwn.call(values, "personnelAssignments")
+          ? values.personnelAssignments
+          : row.personnelAssignments || [];
+
+        return {
+          referenceNumber: hasOwn.call(values, "referenceNumber")
+            ? values.referenceNumber
+            : row.referenceNumber || "",
+          dateReceived: row.dateReceived || "",
+          from: row.from || "",
+          to: row.to || "",
+          cc: row.cc || "",
+          subject: row.subject || "(No subject)",
+          message: row.message || "No message content.",
+          threadId: row.threadId || "",
+          messageId: row.messageId || "",
+          personnelAssignments: normalizeSelectionList(
+            personnelAssignments,
+            mergeUniqueOptionValues(
+              currentPersonnelOptions,
+              personnelAssignments || []
+            )
+          ),
+          status: hasOwn.call(values, "status")
+            ? values.status
+            : row.status || STATUS_OPTIONS[0] || "Pending",
+          statusUpdate: hasOwn.call(values, "statusUpdate")
+            ? values.statusUpdate
+            : row.statusUpdate || "",
+        };
+      }
+
+      function applySavedRowDraft(rowElement, draft, updatedRow) {
+        const row = draft.row;
+
+        row.referenceNumber = updatedRow.referenceNumber || "";
+        row.personnelAssignments = normalizeSelectionList(
+          updatedRow.personnelAssignments || [],
+          mergeUniqueOptionValues(
+            currentPersonnelOptions,
+            updatedRow.personnelAssignments || []
+          )
+        );
+        row.status = updatedRow.status || STATUS_OPTIONS[0] || "Pending";
+        row.statusUpdate = updatedRow.statusUpdate || "";
+
+        draft.referenceNumberInput.value = row.referenceNumber;
+        refreshMultiSelectControl(
+          draft.personnelControl,
+          mergeUniqueOptionValues(
+            currentPersonnelOptions,
+            row.personnelAssignments
+          ),
+          row.personnelAssignments,
+          "personnelAssignments",
+          "Select personnel"
+        );
+        syncPersonnelSummaryNote(rowElement);
+        draft.statusInput.value = row.status;
+        draft.statusUpdateInput.value = row.statusUpdate;
+
+        return buildPrintableRowData(row, {
+          referenceNumber: row.referenceNumber,
+          personnelAssignments: row.personnelAssignments,
+          status: row.status,
+          statusUpdate: row.statusUpdate,
+        });
+      }
+
+      function saveRowDraft(rowElement, handlers) {
+        const callbacks = handlers || {};
+        const draft = readRowDraft(rowElement);
+        if (rowElement) {
+          rowElement.removeAttribute("data-pending-action");
+        }
+
+        if (!draft) {
+          if (callbacks.onFailure) {
+            callbacks.onFailure("The selected email row could not be read.");
+          }
           return;
         }
 
-        const referenceNumber = referenceNumberInput.value.trim();
-        const status = statusInput.value;
-        const statusUpdate = statusUpdateInput.value.trim();
-
         clearDeferredRowSave(rowElement);
 
-        if (
-          row.referenceNumber === referenceNumber &&
-          areSelectionListsEqual(row.personnelAssignments || [], personnelAssignments) &&
-          row.status === status &&
-          row.statusUpdate === statusUpdate
-        ) {
+        if (!isRowDraftDirty(draft)) {
           setRowSaveState(rowElement, "Saved in Google Sheet.", "saved");
+          if (callbacks.onSuccess) {
+            callbacks.onSuccess(
+              buildPrintableRowData(draft.row, {
+                referenceNumber: draft.referenceNumber,
+                personnelAssignments: draft.personnelAssignments,
+                status: draft.status,
+                statusUpdate: draft.statusUpdate,
+              })
+            );
+          }
           return;
         }
 
@@ -1497,29 +1662,17 @@
 
         google.script.run
           .withSuccessHandler(function(updatedRow) {
-            row.referenceNumber = updatedRow.referenceNumber || "";
-            row.personnelAssignments = normalizeSelectionList(
-              updatedRow.personnelAssignments || [],
-              currentPersonnelOptions
+            const printableRow = applySavedRowDraft(
+              rowElement,
+              draft,
+              updatedRow
             );
-            row.status = updatedRow.status || STATUS_OPTIONS[0] || "Pending";
-            row.statusUpdate = updatedRow.statusUpdate || "";
-            referenceNumberInput.value = row.referenceNumber;
-            refreshMultiSelectControl(
-              personnelControl,
-              mergeUniqueOptionValues(
-                currentPersonnelOptions,
-                row.personnelAssignments
-              ),
-              row.personnelAssignments,
-              "personnelAssignments",
-              "Select personnel"
-            );
-            syncPersonnelSummaryNote(rowElement);
-            statusInput.value = row.status;
-            statusUpdateInput.value = row.statusUpdate;
             setRowSaveState(rowElement, "Saved in Google Sheet.", "saved");
             setRowEditingEnabled(rowElement, true);
+
+            if (callbacks.onSuccess) {
+              callbacks.onSuccess(printableRow);
+            }
           })
           .withFailureHandler(function(error) {
             const message =
@@ -1528,13 +1681,17 @@
                 : "The row could not be updated in Google Sheet.";
             setRowSaveState(rowElement, message, "error");
             setRowEditingEnabled(rowElement, true);
+
+            if (callbacks.onFailure) {
+              callbacks.onFailure(message, error);
+            }
           })
           .updateEmailRecordManualFields({
-            messageId: row.messageId,
-            referenceNumber: referenceNumber,
-            personnelAssignments: personnelAssignments,
-            status: status,
-            statusUpdate: statusUpdate,
+            messageId: draft.row.messageId,
+            referenceNumber: draft.referenceNumber,
+            personnelAssignments: draft.personnelAssignments,
+            status: draft.status,
+            statusUpdate: draft.statusUpdate,
           });
       }
 
@@ -1609,7 +1766,7 @@
         }
 
         rowElement
-          .querySelectorAll('[data-field], [data-action="save-row"]')
+          .querySelectorAll("[data-field], [data-action]")
           .forEach(function(element) {
             element.disabled = !isEnabled;
           });
@@ -1635,25 +1792,117 @@
         note.className = "save-note" + (state ? " " + state : "");
       }
 
-      function printEmailTransaction(row) {
-        if (!row) {
+      function prepareTransactionPrint(rowElement, printMode) {
+        const draft = readRowDraft(rowElement);
+        const printConfig = getTransactionPrintConfig(printMode);
+        if (!draft || !printConfig) {
           return;
         }
 
         const printWindow = window.open(
           "",
           "_blank",
-          "width=920,height=720"
+          printConfig.windowFeatures
         );
 
         if (!printWindow) {
-          window.alert("Allow pop-ups to print an email transaction.");
+          window.alert(printConfig.blockedMessage);
+          return;
+        }
+
+        if (isRowDraftDirty(draft)) {
+          writePrintWindowContent(
+            printWindow,
+            buildPrintLoadingHtml(
+              printConfig.loadingTitle,
+              printConfig.loadingMessage
+            )
+          );
+        }
+
+        saveRowDraft(rowElement, {
+          onSuccess: function(printableRow) {
+            writePrintWindowContent(
+              printWindow,
+              printConfig.buildHtml(printableRow)
+            );
+          },
+          onFailure: function() {
+            closePrintWindow(printWindow);
+          },
+        });
+      }
+
+      function getTransactionPrintConfig(printMode) {
+        if (printMode === "routing-slip") {
+          return {
+            windowFeatures: "width=1180,height=820",
+            blockedMessage: "Allow pop-ups to print a routing slip.",
+            loadingTitle: "Preparing routing slip",
+            loadingMessage: "Saving the latest transaction details before printing.",
+            buildHtml: buildPrintableRoutingSlipHtml,
+          };
+        }
+
+        if (printMode === "email") {
+          return {
+            windowFeatures: "width=920,height=720",
+            blockedMessage: "Allow pop-ups to print an email transaction.",
+            loadingTitle: "Preparing email printout",
+            loadingMessage: "Saving the latest transaction details before printing.",
+            buildHtml: buildPrintableEmailHtml,
+          };
+        }
+
+        return null;
+      }
+
+      function writePrintWindowContent(printWindow, html) {
+        if (!printWindow || printWindow.closed) {
           return;
         }
 
         printWindow.document.open();
-        printWindow.document.write(buildPrintableEmailHtml(row));
+        printWindow.document.write(html);
         printWindow.document.close();
+      }
+
+      function closePrintWindow(printWindow) {
+        if (!printWindow || printWindow.closed) {
+          return;
+        }
+
+        printWindow.close();
+      }
+
+      function buildPrintLoadingHtml(title, message) {
+        return (
+          '<!DOCTYPE html>' +
+          '<html><head><meta charset="utf-8">' +
+          "<title>" +
+          escapeHtml(title) +
+          "</title>" +
+          "<style>" +
+          ':root{color-scheme:light;}*{box-sizing:border-box;}body{margin:0;min-height:100vh;display:grid;place-items:center;padding:24px;font-family:"Frutiger","Frutiger LT Std","Frutiger Linotype","Univers","Segoe UI",Arial,sans-serif;color:#15233d;background:#f7f9ff;}' +
+          ".card{width:min(420px,100%);padding:28px;border-radius:24px;background:#ffffff;border:1px solid rgba(31,74,168,.12);box-shadow:0 24px 56px rgba(21,35,61,.08);}" +
+          ".eyebrow{margin:0 0 10px;font-size:8pt;letter-spacing:.16em;text-transform:uppercase;color:#7a2038;}" +
+          'h1{margin:0;font-size:12pt;line-height:1.2;font-family:"Frutiger","Frutiger LT Std","Frutiger Linotype","Univers","Segoe UI",Arial,sans-serif;font-weight:700;}' +
+          ".message{margin:12px 0 0;font-size:9pt;line-height:1.5;color:#52627d;}" +
+          ".spinner{width:40px;height:40px;margin:0 0 18px;border-radius:50%;border:4px solid rgba(31,74,168,.12);border-top-color:#1f4aa8;animation:spin 900ms linear infinite;}" +
+          "@keyframes spin{to{transform:rotate(360deg);}}" +
+          "</style></head><body>" +
+          '<section class="card">' +
+          '<div class="spinner"></div>' +
+          '<p class="eyebrow">CHED Operations Monitoring</p>' +
+          "<h1>" +
+          escapeHtml(title) +
+          "</h1>" +
+          '<p class="message">' +
+          escapeHtml(message) +
+          "</p>" +
+          "</section>" +
+          "</body></html>"
+        );
       }
 
       function printAllTransactionsInView() {
@@ -1734,6 +1983,88 @@
           "</main>" +
           '<script>window.addEventListener("load",function(){window.focus();window.print();});<\/script>' +
           "</body></html>"
+        );
+      }
+
+      function buildPrintableRoutingSlipHtml(row) {
+        return (
+          '<!DOCTYPE html>' +
+          '<html><head><meta charset="utf-8">' +
+          "<title>Print Routing Slip</title>" +
+          "<style>" +
+          "@page{size:A4 landscape;margin:10mm;}" +
+          ":root{color-scheme:light;}*{box-sizing:border-box;}html,body{margin:0;padding:0;width:277mm;height:190mm;overflow:hidden;background:#ffffff;}" +
+          'body{font-family:"Frutiger","Frutiger LT Std","Frutiger Linotype","Univers","Segoe UI",Arial,sans-serif;font-size:8pt;color:#15233d;background:#ffffff;}' +
+          ".sheet{width:277mm;height:190mm;margin:0 auto;display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8mm;}" +
+          ".slip{height:190mm;padding:4.6mm 4.6mm 4mm;border:1px solid rgba(31,74,168,.2);border-radius:4mm;background:#ffffff;display:grid;grid-template-rows:auto auto 31mm 43mm auto;gap:3mm;overflow:hidden;}" +
+          ".slip-header{padding-bottom:2.5mm;border-bottom:1.2px solid #c7a343;}" +
+          ".eyebrow{margin:0 0 1.4mm;font-size:6.2pt;letter-spacing:.16em;text-transform:uppercase;color:#7a2038;}" +
+          'h1{margin:0;font-size:10.2pt;line-height:1.12;font-family:"Frutiger","Frutiger LT Std","Frutiger Linotype","Univers","Segoe UI",Arial,sans-serif;font-weight:700;}' +
+          ".detail-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:2.8mm;align-content:start;}" +
+          ".detail{padding:2.4mm 2.7mm;border:1px solid rgba(31,74,168,.16);border-radius:3mm;background:#f7f9ff;min-height:0;}" +
+          ".label{display:block;margin-bottom:1mm;font-size:6pt;letter-spacing:.12em;text-transform:uppercase;color:#7a2038;}" +
+          ".value{font-size:7.6pt;white-space:pre-wrap;word-break:break-word;line-height:1.28;}" +
+          ".preview-box,.instruction-box{padding:2.8mm;border:1px solid rgba(31,74,168,.18);border-radius:3mm;background:#ffffff;overflow:hidden;}" +
+          ".preview-box{height:31mm;font-size:7.5pt;line-height:1.35;white-space:pre-wrap;word-break:break-word;}" +
+          ".instruction-box{height:43mm;background:repeating-linear-gradient(to bottom,#ffffff 0,#ffffff 8mm,rgba(21,35,61,.18) 8mm,rgba(21,35,61,.18) 8.2mm,#ffffff 8.2mm,#ffffff 16.2mm);}" +
+          ".signatory{align-self:end;padding-top:2.6mm;}" +
+          ".signatory-line{height:0;border-top:1px solid #15233d;margin-bottom:2.2mm;}" +
+          ".signatory-name{font-size:7.8pt;font-weight:700;line-height:1.2;}" +
+          ".signatory-title{font-size:7.2pt;line-height:1.2;color:#52627d;}" +
+          "@media print{body{margin:0;}}" +
+          "</style></head><body>" +
+          '<main class="sheet">' +
+          buildPrintableRoutingSlipCopyHtml(row) +
+          buildPrintableRoutingSlipCopyHtml(row) +
+          "</main>" +
+          '<script>window.addEventListener("load",function(){window.focus();window.print();});<\/script>' +
+          "</body></html>"
+        );
+      }
+
+      function buildPrintableRoutingSlipCopyHtml(row) {
+        const personnelLabel = formatPersonnelSummary(
+          row.personnelAssignments || []
+        );
+        const messagePreview = formatPrintableMultiline(
+          buildPrintableMessagePreview(row.message || "No message content.", 300)
+        );
+
+        return (
+          '<section class="slip">' +
+          '<section class="slip-header">' +
+          '<p class="eyebrow">CHED Operations Monitoring</p>' +
+          "<h1>Routing Slip</h1>" +
+          "</section>" +
+          '<section class="detail-grid">' +
+          buildPrintDetailCard(
+            "Reference Number",
+            row.referenceNumber || "Not provided"
+          ) +
+          buildPrintDetailCard(
+            "Date Received",
+            row.dateReceived || "Not available"
+          ) +
+          buildPrintDetailCard("From", row.from || "(Unknown sender)") +
+          buildPrintDetailCard("Subject", row.subject || "(No subject)") +
+          buildPrintDetailCard("OPSD Personnel", personnelLabel) +
+          "</section>" +
+          "<section>" +
+          '<div class="label">Message Preview</div>' +
+          '<div class="preview-box">' +
+          messagePreview +
+          "</div>" +
+          "</section>" +
+          "<section>" +
+          '<div class="label">Instruction</div>' +
+          '<div class="instruction-box"></div>' +
+          "</section>" +
+          '<section class="signatory">' +
+          '<div class="signatory-line"></div>' +
+          '<div class="signatory-name">Dr. JIMMY G. CATANES, CESE</div>' +
+          '<div class="signatory-title">Director IV</div>' +
+          "</section>" +
+          "</section>"
         );
       }
 
@@ -1874,6 +2205,17 @@
 
       function formatPrintableMultiline(value) {
         return escapeHtml(value).replace(/\r?\n/g, "<br>");
+      }
+
+      function buildPrintableMessagePreview(value, maxLength) {
+        const normalizedValue = String(value || "").trim() || "No message content.";
+        const limit = Math.max(parseInt(maxLength, 10) || 0, 1);
+
+        if (normalizedValue.length <= limit) {
+          return normalizedValue;
+        }
+
+        return normalizedValue.slice(0, limit).replace(/\s+$/, "") + "...";
       }
 
       function buildMultiSelectControlHtml(

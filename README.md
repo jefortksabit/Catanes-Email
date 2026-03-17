@@ -73,7 +73,7 @@ The same Apps Script project also includes a web app UI for browsing the monitor
 The web app includes:
 
 - summary cards for total emails, senders, completed items, open items, and today's volume
-- a sender dropdown, OPSD personnel multi-select filter, status filter, search box, and row limit selector
+- a sender dropdown, OPSD personnel multi-select filter, date range filter, status filter, search box, and row limit selector
 - a live table of email records loaded directly from `Email Log`
 - editable `Reference Number`, `OPSD Personnel`, `Status`, and `Status Update` fields that save back to Google Sheets
 

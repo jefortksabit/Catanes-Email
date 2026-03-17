@@ -388,6 +388,12 @@ function getPersonnelRecords_() {
         userName: normalizePersonnelOptionValue_(
           row[OPSD_PERSONNEL_COLUMN_INDEX.userName - 1]
         ),
+        division: normalizePersonnelOptionValue_(
+          row[OPSD_PERSONNEL_COLUMN_INDEX.division - 1]
+        ),
+        position: normalizePersonnelOptionValue_(
+          row[OPSD_PERSONNEL_COLUMN_INDEX.position - 1]
+        ),
         sortOrder: normalizePersonnelSortOrder_(
           row[OPSD_PERSONNEL_COLUMN_INDEX.sortOrder - 1]
         ),
@@ -399,6 +405,33 @@ function getPersonnelRecords_() {
     .filter(function(record) {
       return record.userName !== '';
     });
+}
+
+function getPersonnelDirectory_() {
+  const directory = {};
+
+  getPersonnelRecords_()
+    .slice()
+    .sort(function(left, right) {
+      return (
+        left.sortOrder - right.sortOrder ||
+        left.userName.localeCompare(right.userName)
+      );
+    })
+    .forEach(function(record) {
+      const key = record.userName.toLowerCase();
+      if (!record.userName || directory[key]) {
+        return;
+      }
+
+      directory[key] = {
+        userName: record.userName,
+        division: record.division,
+        position: record.position,
+      };
+    });
+
+  return directory;
 }
 
 function getActivePersonnelOptions_() {

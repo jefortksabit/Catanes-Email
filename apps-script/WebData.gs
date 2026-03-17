@@ -66,6 +66,7 @@ function buildWebAppPayload_(records, filters) {
     summary: buildWebSummary_(records),
     senderOptions: getSenderOptions_(records),
     personnelOptions: getActivePersonnelOptions_(),
+    personnelDirectory: getPersonnelDirectory_(),
     topSenders: buildTopSenders_(records),
     metadata: {
       lastSyncAt: getLastSyncLabel_(),
@@ -96,11 +97,17 @@ function normalizeWebFilters_(filters) {
     WEB_APP_CONFIG.maxRowLimit
   );
   const status = String(filters.status || 'all').trim();
+  const dateRange = normalizeWebDateRangeFilters_(
+    filters.dateFrom,
+    filters.dateTo
+  );
 
   return {
     sender: String(filters.sender || '').trim(),
     personnel: normalizeWebMultiSelectFilter_(filters.personnel),
     query: String(filters.query || '').trim(),
+    dateFrom: dateRange.dateFrom,
+    dateTo: dateRange.dateTo,
     status:
       EMAIL_MONITOR_CONFIG.statusOptions.indexOf(status) !== -1 ? status : 'all',
     limit: limit,
@@ -111,8 +118,42 @@ function normalizeWebMultiSelectFilter_(value) {
   return normalizePersonnelAssignmentsInput_(value, getActivePersonnelOptions_());
 }
 
+function normalizeWebDateRangeFilters_(dateFromValue, dateToValue) {
+  const dateFrom = normalizeWebDateFilterValue_(dateFromValue);
+  const dateTo = normalizeWebDateFilterValue_(dateToValue);
+
+  if (dateFrom && dateTo && dateFrom > dateTo) {
+    return {
+      dateFrom: dateTo,
+      dateTo: dateFrom,
+    };
+  }
+
+  return {
+    dateFrom: dateFrom,
+    dateTo: dateTo,
+  };
+}
+
+function normalizeWebDateFilterValue_(value) {
+  const normalizedValue = String(value || '').trim();
+  return /^\d{4}-\d{2}-\d{2}$/.test(normalizedValue) ? normalizedValue : '';
+}
+
 function recordMatchesFilters_(record, filters) {
   if (filters.sender && record.from !== filters.sender) {
+    return false;
+  }
+
+  const recordDateKey = Utilities.formatDate(
+    record.dateReceived,
+    EMAIL_MONITOR_CONFIG.timeZone,
+    'yyyy-MM-dd'
+  );
+  if (filters.dateFrom && recordDateKey < filters.dateFrom) {
+    return false;
+  }
+  if (filters.dateTo && recordDateKey > filters.dateTo) {
     return false;
   }
 

@@ -247,7 +247,7 @@
 
       .filter-grid {
         display: grid;
-        grid-template-columns: repeat(6, minmax(0, 1fr));
+        grid-template-columns: repeat(7, minmax(0, 1fr));
         gap: 14px;
       }
 
@@ -288,6 +288,26 @@
 
       .field-block {
         display: block;
+      }
+
+      .date-range-inputs {
+        display: grid;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: 10px;
+      }
+
+      .date-range-subfield {
+        display: block;
+      }
+
+      .date-range-subfield span {
+        margin-bottom: 6px;
+        font-size: var(--font-helper);
+        letter-spacing: 0.08em;
+      }
+
+      .date-range-inputs input {
+        min-width: 0;
       }
 
       .multi-select {
@@ -827,6 +847,10 @@
           grid-template-columns: 1fr;
         }
 
+        .date-range-inputs {
+          grid-template-columns: 1fr;
+        }
+
         .pill-row {
           justify-content: flex-start;
         }
@@ -951,6 +975,28 @@
               ></details>
             </label>
 
+            <label class="field-block">
+              <span>Date Received</span>
+              <div class="date-range-inputs">
+                <div class="date-range-subfield">
+                  <span>From</span>
+                  <input
+                    id="dateFromFilter"
+                    type="date"
+                    aria-label="Date received from"
+                  />
+                </div>
+                <div class="date-range-subfield">
+                  <span>To</span>
+                  <input
+                    id="dateToFilter"
+                    type="date"
+                    aria-label="Date received to"
+                  />
+                </div>
+              </div>
+            </label>
+
             <label>
               <span>Search</span>
               <input
@@ -1055,6 +1101,7 @@
       const STATUS_OPTIONS = (APP_BOOTSTRAP.statusOptions || []).slice();
       let currentRenderedRows = [];
       let currentPersonnelOptions = [];
+      let currentPersonnelDirectory = {};
 
       document.addEventListener("DOMContentLoaded", initializeApp);
 
@@ -1068,6 +1115,8 @@
         byId("statusFilter").addEventListener("change", applyFilters);
         byId("personnelFilter").addEventListener("change", handlePersonnelFilterChange);
         byId("personnelFilter").addEventListener("toggle", handlePersonnelFilterToggle);
+        byId("dateFromFilter").addEventListener("change", applyFilters);
+        byId("dateToFilter").addEventListener("change", applyFilters);
         byId("limitFilter").addEventListener("change", applyFilters);
         byId("refreshButton").addEventListener("click", loadBootstrapData);
         byId("clearButton").addEventListener("click", clearFilters);
@@ -1172,6 +1221,7 @@
         renderSummary(payload.summary || {});
         renderSenderOptions(payload.senderOptions || []);
         renderPersonnelFilterOptions(payload.personnelOptions || []);
+        currentPersonnelDirectory = payload.personnelDirectory || {};
         renderTopSenders(payload.topSenders || []);
         const metadata = payload.metadata || {};
         byId("lastSyncValue").textContent = metadata.lastSyncAt || "Not synced yet";
@@ -1275,8 +1325,10 @@
       }
 
       function renderEmailPayload(payload) {
+        const filters = payload.filters || {};
+        syncDateRangeFilterInputs(filters);
         renderResultsLabel(payload.totalFiltered || 0, (payload.rows || []).length);
-        renderActiveFilters(payload.filters || {});
+        renderActiveFilters(filters);
         renderRows(payload.rows || []);
       }
 
@@ -1299,6 +1351,13 @@
         }
         if (filters.personnel && filters.personnel.length) {
           pills.push("Personnel: " + filters.personnel.join(", "));
+        }
+        const dateRangeLabel = buildDateRangeFilterLabel(
+          filters.dateFrom,
+          filters.dateTo
+        );
+        if (dateRangeLabel) {
+          pills.push(dateRangeLabel);
         }
         if (filters.status && filters.status !== "all") {
           pills.push("Status: " + filters.status);
@@ -1930,7 +1989,7 @@
 
       function buildPrintableEmailHtml(row) {
         const statusLabel = row.status || STATUS_OPTIONS[0] || "Pending";
-        const personnelLabel = formatPersonnelSummary(
+        const personnelLabel = formatPersonnelPrintSummary(
           row.personnelAssignments || []
         );
         const messageHtml = formatPrintableMultiline(
@@ -2023,7 +2082,7 @@
       }
 
       function buildPrintableRoutingSlipCopyHtml(row) {
-        const personnelLabel = formatPersonnelSummary(
+        const personnelLabel = formatPersonnelPrintSummary(
           row.personnelAssignments || []
         );
         const messagePreview = formatPrintableMultiline(
@@ -2136,7 +2195,7 @@
 
       function buildPrintableEmailSectionHtml(row, index) {
         const statusLabel = row.status || STATUS_OPTIONS[0] || "Pending";
-        const personnelLabel = formatPersonnelSummary(
+        const personnelLabel = formatPersonnelPrintSummary(
           row.personnelAssignments || []
         );
         const messageHtml = formatPrintableMultiline(
@@ -2182,6 +2241,10 @@
         } else {
           segments.push("Personnel: All personnel");
         }
+        segments.push(
+          buildDateRangeFilterLabel(filters.dateFrom, filters.dateTo) ||
+            "Date Received: All dates"
+        );
         if (filters.status && filters.status !== "all") {
           segments.push("Status: " + filters.status);
         } else {
@@ -2488,6 +2551,65 @@
           : "Unassigned";
       }
 
+      function getPersonnelDirectoryRecord(value) {
+        const normalizedValue = String(value || "").trim().toLowerCase();
+        if (!normalizedValue) {
+          return null;
+        }
+
+        return currentPersonnelDirectory[normalizedValue] || null;
+      }
+
+      function formatPersonnelPrintSummary(values) {
+        const normalizedValues = normalizeSelectionList(
+          values,
+          mergeUniqueOptionValues(currentPersonnelOptions, values || [])
+        );
+        if (!normalizedValues.length) {
+          return "Unassigned";
+        }
+
+        const groupedAssignments = [];
+        const groupLookup = {};
+
+        normalizedValues.forEach(function(personName) {
+          const record = getPersonnelDirectoryRecord(personName);
+          const divisionLabel =
+            record && record.division
+              ? record.division
+              : "No Division";
+          const groupKey = divisionLabel.toLowerCase();
+
+          if (!groupLookup[groupKey]) {
+            groupLookup[groupKey] = {
+              division: divisionLabel,
+              entries: [],
+            };
+            groupedAssignments.push(groupLookup[groupKey]);
+          }
+
+          groupLookup[groupKey].entries.push(
+            record && record.position
+              ? personName + " - " + record.position
+              : personName
+          );
+        });
+
+        return groupedAssignments
+          .map(function(group) {
+            return (
+              group.division +
+              "\n" +
+              group.entries
+                .map(function(entry) {
+                  return "- " + entry;
+                })
+                .join("\n")
+            );
+          })
+          .join("\n\n");
+      }
+
       function syncPersonnelSummaryNote(rowElement) {
         if (!rowElement) {
           return;
@@ -2503,9 +2625,93 @@
         );
       }
 
+      function normalizeDateFilterValue(value) {
+        const normalizedValue = String(value || "").trim();
+        return /^\d{4}-\d{2}-\d{2}$/.test(normalizedValue)
+          ? normalizedValue
+          : "";
+      }
+
+      function normalizeDateRangeValues(dateFromValue, dateToValue) {
+        const dateFrom = normalizeDateFilterValue(dateFromValue);
+        const dateTo = normalizeDateFilterValue(dateToValue);
+
+        if (dateFrom && dateTo && dateFrom > dateTo) {
+          return {
+            dateFrom: dateTo,
+            dateTo: dateFrom,
+          };
+        }
+
+        return {
+          dateFrom: dateFrom,
+          dateTo: dateTo,
+        };
+      }
+
+      function normalizeDateRangeFilterInputs() {
+        const dateFromInput = byId("dateFromFilter");
+        const dateToInput = byId("dateToFilter");
+        const normalizedRange = normalizeDateRangeValues(
+          dateFromInput ? dateFromInput.value : "",
+          dateToInput ? dateToInput.value : ""
+        );
+
+        if (dateFromInput && dateFromInput.value !== normalizedRange.dateFrom) {
+          dateFromInput.value = normalizedRange.dateFrom;
+        }
+        if (dateToInput && dateToInput.value !== normalizedRange.dateTo) {
+          dateToInput.value = normalizedRange.dateTo;
+        }
+
+        return normalizedRange;
+      }
+
+      function syncDateRangeFilterInputs(filters) {
+        const normalizedRange = normalizeDateRangeValues(
+          filters && filters.dateFrom,
+          filters && filters.dateTo
+        );
+        const dateFromInput = byId("dateFromFilter");
+        const dateToInput = byId("dateToFilter");
+
+        if (dateFromInput && dateFromInput.value !== normalizedRange.dateFrom) {
+          dateFromInput.value = normalizedRange.dateFrom;
+        }
+        if (dateToInput && dateToInput.value !== normalizedRange.dateTo) {
+          dateToInput.value = normalizedRange.dateTo;
+        }
+      }
+
+      function buildDateRangeFilterLabel(dateFromValue, dateToValue) {
+        const normalizedRange = normalizeDateRangeValues(
+          dateFromValue,
+          dateToValue
+        );
+
+        if (normalizedRange.dateFrom && normalizedRange.dateTo) {
+          return (
+            "Date Received: " +
+            normalizedRange.dateFrom +
+            " to " +
+            normalizedRange.dateTo
+          );
+        }
+        if (normalizedRange.dateFrom) {
+          return "Date Received: On or after " + normalizedRange.dateFrom;
+        }
+        if (normalizedRange.dateTo) {
+          return "Date Received: On or before " + normalizedRange.dateTo;
+        }
+
+        return "";
+      }
+
       function clearFilters() {
         byId("senderFilter").value = "";
         byId("statusFilter").value = "all";
+        byId("dateFromFilter").value = "";
+        byId("dateToFilter").value = "";
         byId("queryFilter").value = "";
         byId("limitFilter").value = "150";
         refreshMultiSelectControl(
@@ -2519,12 +2725,15 @@
       }
 
       function readFilters() {
+        const dateRange = normalizeDateRangeFilterInputs();
         return {
           sender: byId("senderFilter").value,
           personnel: getSelectedMultiSelectValues(
             byId("personnelFilter"),
             "personnelFilter"
           ),
+          dateFrom: dateRange.dateFrom,
+          dateTo: dateRange.dateTo,
           status: byId("statusFilter").value,
           query: byId("queryFilter").value,
           limit: byId("limitFilter").value,
